@@ -3,7 +3,7 @@ import './App.css';
 import axios from 'axios';
 
 const api = axios.create({
-  baseURL: 'https://hosa-treasurer-production.up.railway.app',
+  baseURL: '/api',
   timeout: 10000,
 });
 
