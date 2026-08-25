@@ -17,7 +17,7 @@ import SLCPoints from './pages/SLCPoints';
 import Settings from './pages/Settings';
 
 const api = axios.create({
-  baseURL: 'https://hosa-treasurer-system-production.up.railway.app/api',
+  baseURL: '/api',
   timeout: 10000,
 });
 
