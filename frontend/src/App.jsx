@@ -21,6 +21,15 @@ const api = axios.create({
   timeout: 10000,
 });
 
+// ADD THIS:
+api.interceptors.request.use((config) => {
+  const token = localStorage.getItem('token');
+  if (token) {
+    config.headers.authorization = `Bearer ${token}`;
+  }
+  return config;
+});
+
 // ===== LOGIN PAGE =====
 function Login({ onLogin }) {
   const [email, setEmail] = useState('mega@admin.com');
