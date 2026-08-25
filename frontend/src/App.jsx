@@ -1,8 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import axios from 'axios';
-import Members from './pages/Members';
-import Users from './pages/Users';
 import Committees from './pages/Committees';
 import Fundraising from './pages/Fundraising';
 import Ledger from './pages/Ledger';
@@ -15,6 +13,8 @@ import Events from './pages/Events';
 import Email from './pages/Email';
 import SLCPoints from './pages/SLCPoints';
 import Settings from './pages/Settings';
+import Members from './pages/Members';
+import Users from './pages/Users';
 
 const api = axios.create({
   baseURL: '/api',
@@ -195,7 +195,6 @@ function App() {
           newData[key] = Array.isArray(res.data) ? res.data : (typeof res.data === 'object' ? res.data : {});
         } catch (err) {
           console.log(`Failed to load ${key}`);
-          newData[key] = Array.isArray(data[key]) ? [] : {};
         }
       }
 
@@ -205,7 +204,6 @@ function App() {
           newData.users = Array.isArray(res.data) ? res.data : [];
         } catch (err) {
           console.log('Failed to load users');
-          newData.users = [];
         }
       }
 
@@ -446,3 +444,4 @@ function Dashboard({ user, data }) {
 }
 
 export default App;
+
