@@ -1,12 +1,14 @@
-import React, { useState } from 'react';
-import axios from 'axios';
-
+import React, { useState, useEffect } from 'react';
 import api from '../api';
 
 export default function Committees({ user, data, reload }) {
   const [showModal, setShowModal] = useState(false);
+  const [showMembersModal, setShowMembersModal] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
   const [editingId, setEditingId] = useState(null);
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState(null);
+  const [committeeMembers, setCommitteeMembers] = useState([]);
+  const [selectedMemberToAdd, setSelectedMemberToAdd] = useState('');
 
   const committees = data.committees || [];
   const members = data.members || [];
@@ -38,6 +40,38 @@ export default function Committees({ user, data, reload }) {
     }
   };
 
+  const loadCommitteeMembers = async (committeeId) => {
+    try {
+      const res = await api.get(`/committees/${committeeId}/members`);
+      setCommitteeMembers(res.data || []);
+      setSelectedCommitteeId(committeeId);
+      setShowMembersModal(true);
+    } catch (err) {
+      alert('Error loading members');
+    }
+  };
+
+  const handleAddMember = async () => {
+    if (!selectedMemberToAdd) return alert('Select a member');
+    try {
+      await api.post(`/committees/${selectedCommitteeId}/members`, { memberId: selectedMemberToAdd });
+      setSelectedMemberToAdd('');
+      loadCommitteeMembers(selectedCommitteeId);
+    } catch (err) {
+      alert('Error adding member');
+    }
+  };
+
+  const handleRemoveMember = async (memberId) => {
+    if (!window.confirm('Remove member?')) return;
+    try {
+      await api.delete(`/committees/${selectedCommitteeId}/members/${memberId}`);
+      loadCommitteeMembers(selectedCommitteeId);
+    } catch (err) {
+      alert('Error removing member');
+    }
+  };
+
   return (
     <div>
       <h2 className="card-title-main">Committees</h2>
@@ -55,7 +89,7 @@ export default function Committees({ user, data, reload }) {
                 <th>Name</th>
                 <th>Chair</th>
                 <th>Schedule</th>
-                <th>Default Points</th>
+                <th>Members</th>
                 <th>Actions</th>
               </tr>
             </thead>
@@ -64,9 +98,13 @@ export default function Committees({ user, data, reload }) {
                 committees.map(c => (
                   <tr key={c.id}>
                     <td>{c.name}</td>
-                    <td>{c.chair || '-'}</td>
+                    <td>{members.find(m => m.id === c.chair)?.name || '-'}</td>
                     <td>{c.schedule || '-'}</td>
-                    <td>{c.defaultPts || 0}</td>
+                    <td>
+                      <button className="btn btn-secondary btn-small" onClick={() => loadCommitteeMembers(c.id)}>
+                        Manage
+                      </button>
+                    </td>
                     <td>
                       <button className="btn btn-secondary btn-small" onClick={() => { setForm(c); setEditingId(c.id); setShowModal(true); }}>Edit</button>
                       <button className="btn btn-danger btn-small" onClick={() => handleDelete(c.id)}>Delete</button>
@@ -116,6 +154,50 @@ export default function Committees({ user, data, reload }) {
                 <button type="submit" className="btn btn-primary">Save</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showMembersModal && (
+        <div className="modal-overlay open">
+          <div className="modal">
+            <h2 className="modal-title">Manage Committee Members</h2>
+            
+            <div className="form-group">
+              <label className="form-label">Add Member</label>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <select className="form-input" value={selectedMemberToAdd} onChange={(e) => setSelectedMemberToAdd(e.target.value)} style={{ flex: 1 }}>
+                  <option value="">Select member...</option>
+                  {members.filter(m => !committeeMembers.find(cm => cm.memberId === m.id)).map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
+                  ))}
+                </select>
+                <button className="btn btn-primary" onClick={handleAddMember}>Add</button>
+              </div>
+            </div>
+
+            <div className="card" style={{ marginTop: '20px' }}>
+              <div className="card-title">Current Members ({committeeMembers.length})</div>
+              {committeeMembers.length > 0 ? (
+                <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
+                  {committeeMembers.map(m => (
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', borderBottom: '1px solid #e8e3de' }}>
+                      <div>
+                        <strong>{m.memberName}</strong>
+                        <p style={{ fontSize: '12px', color: '#8b8580', margin: '2px 0' }}>{m.memberEmail}</p>
+                      </div>
+                      <button className="btn btn-danger btn-small" onClick={() => handleRemoveMember(m.id)}>Remove</button>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <p style={{ color: '#8b8580' }}>No members yet</p>
+              )}
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => setShowMembersModal(false)}>Close</button>
+            </div>
           </div>
         </div>
       )}

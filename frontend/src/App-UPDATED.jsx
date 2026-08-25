@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
-import axios from 'axios';
+import api from './api';
 import Committees from './pages/Committees';
 import Fundraising from './pages/Fundraising';
 import Ledger from './pages/Ledger';
@@ -15,20 +15,7 @@ import SLCPoints from './pages/SLCPoints';
 import Settings from './pages/Settings';
 import Members from './pages/Members';
 import Users from './pages/Users';
-
-const api = axios.create({
-  baseURL: '/api',
-  timeout: 10000,
-});
-
-// ADD THIS:
-api.interceptors.request.use((config) => {
-  const token = localStorage.getItem('token');
-  if (token) {
-    config.headers.authorization = `Bearer ${token}`;
-  }
-  return config;
-});
+import WeeklyNotes from './pages/WeeklyNotes';
 
 // ===== LOGIN PAGE =====
 function Login({ onLogin }) {
@@ -144,6 +131,7 @@ function App() {
     users: [],
   });
   const [loading, setLoading] = useState(false);
+  const [selectedCommitteeId, setSelectedCommitteeId] = useState(null);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
@@ -232,7 +220,7 @@ function App() {
   if (!user) return <Login onLogin={(u) => { setUser(u); setTimeout(() => loadAllData(u), 300); }} />;
 
   const NavItem = ({ icon, label, id }) => (
-    <button className={`nav-item ${page === id ? 'active' : ''}`} onClick={() => setPage(id)}>
+    <button className={`nav-item ${page === id ? 'active' : ''}`} onClick={() => { setPage(id); setSelectedCommitteeId(null); }}>
       <span className="nav-icon" style={{ fontSize: '18px' }}>{icon}</span>
       {label}
     </button>
@@ -258,6 +246,7 @@ function App() {
             <div className="nav-section">Dashboard</div>
             <NavItem icon="📊" label="My Dashboard" id="member-dash" />
             <NavItem icon="📋" label="Committee" id="committee-lead" />
+            <NavItem icon="📝" label="Weekly Notes" id="weekly-notes" />
           </>
         )}
 
@@ -319,6 +308,7 @@ function App() {
             <>
               {page === 'member-dash' && <MemberDashboard user={user} data={data} />}
               {page === 'committee-lead' && <CommitteeLead user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'weekly-notes' && <WeeklyNotes committeeId={selectedCommitteeId} reload={() => loadAllData(user)} />}
               {page === 'dashboard' && <Dashboard user={user} data={data} />}
               {page === 'members' && <Members user={user} data={data} reload={() => loadAllData(user)} />}
               {page === 'committees' && <Committees user={user} data={data} reload={() => loadAllData(user)} />}
@@ -342,7 +332,7 @@ function App() {
   );
 }
 
-// ===== MEMBER DASHBOARD =====
+// ===== DASHBOARDS =====
 function MemberDashboard({ user, data }) {
   const [dashData, setDashData] = useState({ member: {}, outstandingFees: 0, equipmentCount: 0, eventsCount: 0, fundraisersCount: 0 });
 
@@ -381,31 +371,10 @@ function MemberDashboard({ user, data }) {
           </div>
         </div>
       </div>
-
-      <div className="grid-2">
-        <div className="card">
-          <div className="card-title">Personal Info</div>
-          <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-            <div><strong>Name:</strong> {dashData.member?.name || 'N/A'}</div>
-            <div><strong>Email:</strong> {dashData.member?.email || 'N/A'}</div>
-            <div><strong>Phone:</strong> {dashData.member?.phone || '-'}</div>
-            <div><strong>Grade:</strong> {dashData.member?.grade || '-'}</div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">Quick Links</div>
-          <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button className="btn btn-primary" style={{ width: '100%' }}>View Equipment</button>
-            <button className="btn btn-secondary" style={{ width: '100%' }}>View Events</button>
-          </div>
-        </div>
-      </div>
     </div>
   );
 }
 
-// ===== COMMITTEE LEAD =====
 function CommitteeLead({ user, data, reload }) {
   return (
     <div>
@@ -417,7 +386,6 @@ function CommitteeLead({ user, data, reload }) {
   );
 }
 
-// ===== DASHBOARD =====
 function Dashboard({ user, data }) {
   const buckets = data.buckets || [];
   const fundraisers = data.fundraisers || [];
@@ -453,4 +421,3 @@ function Dashboard({ user, data }) {
 }
 
 export default App;
-
