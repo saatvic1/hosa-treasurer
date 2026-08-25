@@ -9,6 +9,7 @@ export default function SLCPoints({ user, data, reload }) {
   const [pointsToAdd, setPointsToAdd] = useState('');
   const [reason, setReason] = useState('');
   const [searchTerm, setSearchTerm] = useState('');
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     loadData();
@@ -18,15 +19,27 @@ export default function SLCPoints({ user, data, reload }) {
     try {
       setMembers(data.members || []);
       
-      // Calculate total points per member from all sources
       const points = {};
       (data.members || []).forEach(m => {
         points[m.id] = 0;
       });
       
+      try {
+        const res = await api.get('/slc-points-all');
+        if (res.data && Array.isArray(res.data)) {
+          res.data.forEach(entry => {
+            if (points[entry.memberId] !== undefined) {
+              points[entry.memberId] = (points[entry.memberId] || 0) + entry.points;
+            }
+          });
+        }
+      } catch (err) {
+        console.log('Could not load all points (admin only)');
+      }
+      
       setMemberPoints(points);
     } catch (err) {
-      console.error('Error loading data');
+      console.error('Error loading data:', err);
     }
   };
 
@@ -36,12 +49,12 @@ export default function SLCPoints({ user, data, reload }) {
     const pts = parseInt(pointsToAdd);
     if (isNaN(pts) || pts < 0) return alert('Enter valid points');
 
+    setLoading(true);
     try {
-      await api.post('/api/slc-points', {
+      await api.post('/slc-points', {
         memberId: selectedMember.id,
         points: pts,
-        reason: reason || 'Manual award',
-        date: new Date().toISOString()
+        reason: reason || 'Manual award'
       });
       
       setMemberPoints({
@@ -58,6 +71,7 @@ export default function SLCPoints({ user, data, reload }) {
     } catch (err) {
       alert('Error adding points');
     }
+    setLoading(false);
   };
 
   const filteredMembers = members.filter(m =>
@@ -67,7 +81,6 @@ export default function SLCPoints({ user, data, reload }) {
 
   const totalPoints = Object.values(memberPoints).reduce((sum, p) => sum + p, 0);
 
-  // Only mega-admin and admin can assign points
   if (user?.role !== 'mega-admin' && user?.role !== 'admin') {
     return (
       <div>
@@ -119,7 +132,7 @@ export default function SLCPoints({ user, data, reload }) {
                   <th>Name</th>
                   <th>Email</th>
                   <th>Grade</th>
-                  <th>Current SLC Points</th>
+                  <th>Total SLC Points</th>
                   <th>Action</th>
                 </tr>
               </thead>
@@ -162,7 +175,6 @@ export default function SLCPoints({ user, data, reload }) {
         )}
       </div>
 
-      {/* AWARD POINTS MODAL */}
       {showModal && (
         <div className="modal-overlay open">
           <div className="modal">
@@ -233,8 +245,8 @@ export default function SLCPoints({ user, data, reload }) {
                 Cancel
               </button>
               {selectedMember && (
-                <button className="btn btn-primary" onClick={handleAddPoints}>
-                  Award Points
+                <button className="btn btn-primary" onClick={handleAddPoints} disabled={loading}>
+                  {loading ? 'Awarding...' : 'Award Points'}
                 </button>
               )}
             </div>

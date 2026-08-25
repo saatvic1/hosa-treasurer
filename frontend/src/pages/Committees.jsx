@@ -89,6 +89,7 @@ export default function Committees({ user, data, reload }) {
       setSlcWeek('1');
       setSlcRating('0');
       loadCommitteeMembers(selectedCommitteeId);
+      if (reload) reload();
     } catch (err) {
       alert('Error assigning SLC points');
     }
@@ -141,7 +142,6 @@ export default function Committees({ user, data, reload }) {
         </div>
       </div>
 
-      {/* CREATE/EDIT COMMITTEE MODAL */}
       {showModal && (
         <div className="modal-overlay open">
           <div className="modal">
@@ -181,7 +181,6 @@ export default function Committees({ user, data, reload }) {
         </div>
       )}
 
-      {/* MANAGE MEMBERS MODAL */}
       {showMembersModal && (
         <div className="modal-overlay open">
           <div className="modal" style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
@@ -237,13 +236,12 @@ export default function Committees({ user, data, reload }) {
         </div>
       )}
 
-      {/* SLC POINTS RATING MODAL */}
       {showSLCModal && selectedMemberForSLC && (
         <div className="modal-overlay open">
           <div className="modal">
-            <h2 className="modal-title">Assign SLC Points</h2>
+            <h2 className="modal-title">Assign Weekly Participation Rating</h2>
             <p style={{ color: '#8b8580', marginBottom: '20px' }}>
-              Rating for: <strong>{selectedMemberForSLC.memberName}</strong>
+              Member: <strong>{selectedMemberForSLC.memberName}</strong>
             </p>
 
             <div className="form-group">

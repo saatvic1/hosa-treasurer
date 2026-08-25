@@ -32,7 +32,6 @@ const slcPointsTracking = [];
 const slcPointsHistory = [];
 
 const attendance = [];
-const slcPoints = [];
 const transactions = [];
 const buckets = [
   { id: '1', name: 'General Fund', balance: 5000, budget: 10000, description: 'General operational fund' },
@@ -256,10 +255,6 @@ app.post('/api/slc-points', verifyToken, (req, res) => {
 });
 
 app.get('/api/slc-points-all', verifyToken, (req, res) => {
-  if (req.user.role !== 'mega-admin') {
-    return res.status(403).json({ error: 'Forbidden' });
-  }
-  
   const detailed = slcPointsHistory.map(p => {
     const member = members.find(m => m.id === p.memberId);
     const totalPoints = slcPointsHistory
@@ -274,6 +269,24 @@ app.get('/api/slc-points-all', verifyToken, (req, res) => {
   });
   res.json(detailed);
 });
+
+// ===== EMAIL =====
+app.post('/api/email', verifyToken, (req, res) => {
+  const { to, subject, body, type } = req.body;
+  const newEmail = {
+    id: Date.now().toString(),
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    body,
+    type,
+    sentAt: new Date().toISOString(),
+    recipientCount: Array.isArray(to) ? to.length : 1
+  };
+  emailHistory.push(newEmail);
+  res.json({ success: true, emailId: newEmail.id });
+});
+
+app.get('/api/email-history', verifyToken, (req, res) => res.json(emailHistory));
 
 // ===== OTHER ENDPOINTS =====
 app.get('/api/attendance', verifyToken, (req, res) => res.json(attendance));
@@ -433,22 +446,6 @@ app.delete('/api/events/:id', verifyToken, (req, res) => {
   const index = events.findIndex(e => e.id === req.params.id);
   if (index > -1) events.splice(index, 1);
   res.json({ success: true });
-});
-
-app.get('/api/email-history', verifyToken, (req, res) => res.json(emailHistory));
-app.post('/api/email', verifyToken, (req, res) => {
-  const { to, subject, body, type } = req.body;
-  const newEmail = {
-    id: Date.now().toString(),
-    to: Array.isArray(to) ? to : [to],
-    subject,
-    body,
-    type,
-    sentAt: new Date().toISOString(),
-    recipientCount: Array.isArray(to) ? to.length : 1
-  };
-  emailHistory.push(newEmail);
-  res.json({ success: true, emailId: newEmail.id });
 });
 
 app.get('/api/settings', verifyToken, (req, res) => res.json(settings));

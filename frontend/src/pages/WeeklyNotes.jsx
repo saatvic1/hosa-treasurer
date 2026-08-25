@@ -7,9 +7,12 @@ export default function WeeklyNotes({ committeeId, reload }) {
   const [content, setContent] = useState('');
   const [editingId, setEditingId] = useState(null);
   const [loading, setLoading] = useState(false);
+  const [sendingEmail, setSendingEmail] = useState(false);
 
   useEffect(() => {
-    loadNotes();
+    if (committeeId) {
+      loadNotes();
+    }
   }, [committeeId]);
 
   const loadNotes = async () => {
@@ -57,29 +60,42 @@ export default function WeeklyNotes({ committeeId, reload }) {
     setContent(note.content);
   };
 
-  const handleSendEmail = async () => {
-    const noteToSend = notes.find(n => n.week === week);
-    if (!noteToSend) return alert('No notes for this week');
+  const handleSendEmail = async (noteId) => {
+    const noteToSend = notes.find(n => n.id === noteId);
+    if (!noteToSend) return alert('Note not found');
     
+    setSendingEmail(true);
     try {
-      await api.post('/api/email', {
+      await api.post('/email', {
         to: 'committee@hosa.com',
-        subject: `Week ${week} Committee Notes`,
+        subject: `Week ${noteToSend.week} Committee Update`,
         body: noteToSend.content,
         type: 'committee-update'
       });
-      alert('Email sent!');
+      alert('Email sent to committee!');
     } catch (err) {
       alert('Error sending email');
     }
+    setSendingEmail(false);
   };
+
+  if (!committeeId) {
+    return (
+      <div>
+        <h2 className="card-title-main">Weekly Notes</h2>
+        <div className="card">
+          <p style={{ color: '#8b8580' }}>Select a committee first</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div>
-      <h2 className="card-title-main">Weekly Notes - Committee</h2>
+      <h2 className="card-title-main">Weekly Notes</h2>
 
       <div className="card">
-        <div className="card-title">Write Notes</div>
+        <div className="card-title">Write Weekly Notes</div>
         
         <div className="form-group">
           <label className="form-label">Week Number</label>
@@ -143,11 +159,12 @@ export default function WeeklyNotes({ committeeId, reload }) {
               <tbody>
                 {notes.map(n => (
                   <tr key={n.id}>
-                    <td>Week {n.week}</td>
+                    <td><strong>Week {n.week}</strong></td>
                     <td>{new Date(n.createdDate).toLocaleDateString()}</td>
                     <td>{n.content.substring(0, 50)}...</td>
                     <td>
                       <button className="btn btn-secondary btn-small" onClick={() => handleEdit(n)}>Edit</button>
+                      <button className="btn btn-warning btn-small" onClick={() => handleSendEmail(n.id)} disabled={sendingEmail}>📧 Email</button>
                       <button className="btn btn-danger btn-small" onClick={() => handleDelete(n.id)}>Delete</button>
                     </td>
                   </tr>
@@ -158,21 +175,6 @@ export default function WeeklyNotes({ committeeId, reload }) {
         ) : (
           <p style={{ color: '#8b8580' }}>No notes yet</p>
         )}
-      </div>
-
-      <div className="card" style={{ marginTop: '20px', background: '#f5f3f0' }}>
-        <div className="card-title">Send Week Notes via Email</div>
-        <p style={{ fontSize: '13px', color: '#8b8580', marginBottom: '16px' }}>
-          Select a week and send its notes to committee members via email
-        </p>
-        <div style={{ display: 'flex', gap: '10px' }}>
-          <select className="form-input" value={week} onChange={(e) => setWeek(e.target.value)} style={{ flex: 1 }}>
-            {notes.map(n => (
-              <option key={n.id} value={n.week}>Week {n.week}</option>
-            ))}
-          </select>
-          <button className="btn btn-primary" onClick={handleSendEmail}>📧 Send Email</button>
-        </div>
       </div>
     </div>
   );
