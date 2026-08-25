@@ -17,6 +17,13 @@ export default function Committees({ user, data, reload }) {
   const committees = data.committees || [];
   const members = data.members || [];
 
+  useEffect(() => {
+  if (!showModal) {
+    setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
+    setEditingId(null);
+  }
+}, [showModal]);
+
   const handleSave = async () => {
     if (!form.name) return alert('Committee name required');
     try {
