@@ -1,8 +1,20 @@
 import React, { useState, useEffect } from 'react';
 import './App.css';
 import axios from 'axios';
-import Committees from './Committees';
-import Fundraising from './Fundraising';
+import Members from './pages/Members';
+import Users from './pages/Users';
+import Committees from './pages/Committees';
+import Fundraising from './pages/Fundraising';
+import Ledger from './pages/Ledger';
+import Buckets from './pages/Buckets';
+import Dues from './pages/Dues';
+import SNAP from './pages/SNAP';
+import Grants from './pages/Grants';
+import Equipment from './pages/Equipment';
+import Events from './pages/Events';
+import Email from './pages/Email';
+import SLCPoints from './pages/SLCPoints';
+import Settings from './pages/Settings';
 
 const api = axios.create({
   baseURL: '/api',
@@ -11,8 +23,8 @@ const api = axios.create({
 
 // ===== LOGIN PAGE =====
 function Login({ onLogin }) {
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
+  const [email, setEmail] = useState('mega@admin.com');
+  const [password, setPassword] = useState('megaadmin123');
   const [isRegister, setIsRegister] = useState(false);
   const [name, setName] = useState('');
   const [error, setError] = useState('');
@@ -88,9 +100,9 @@ function Login({ onLogin }) {
           <div style={{ marginTop: '32px', paddingTop: '24px', borderTop: '1px solid #e8e3de', fontSize: '12px', color: '#8b8580' }}>
             <p style={{ marginBottom: '12px', fontWeight: 600, letterSpacing: '0.05em' }}>DEMO ACCOUNTS</p>
             <div style={{ fontSize: '11px', lineHeight: '1.8', fontFamily: 'DM Mono, monospace' }}>
-              <p>👑 mega@admin.com<br/>megaadmin123</p>
-              <p>🔧 admin@hosa.com<br/>admin123</p>
-              <p>👤 member@hosa.com<br/>member123</p>
+              <p>👑 mega@admin.com / megaadmin123</p>
+              <p>🔧 admin@hosa.com / admin123</p>
+              <p>👤 member@hosa.com / member123</p>
             </div>
           </div>
         )}
@@ -103,22 +115,61 @@ function Login({ onLogin }) {
 function App() {
   const [user, setUser] = useState(null);
   const [page, setPage] = useState('dashboard');
-  const [data, setData] = useState({});
+  const [data, setData] = useState({
+    members: [],
+    committees: [],
+    attendance: [],
+    slcPoints: [],
+    transactions: [],
+    buckets: [],
+    fees: [],
+    memberFees: [],
+    fundraisers: [],
+    snapCampaigns: [],
+    grants: [],
+    equipment: [],
+    equipmentLogs: [],
+    events: [],
+    emailHistory: [],
+    settings: {},
+    users: [],
+  });
   const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     const token = localStorage.getItem('token');
     const userData = localStorage.getItem('user');
     if (token && userData) {
-      setUser(JSON.parse(userData));
+      const user = JSON.parse(userData);
+      setUser(user);
       api.defaults.headers.authorization = `Bearer ${token}`;
-      loadAllData();
+      loadAllData(user);
     }
   }, []);
 
-  const loadAllData = async () => {
+  const loadAllData = async (currentUser) => {
     setLoading(true);
     try {
+      const newData = {
+        members: [],
+        committees: [],
+        attendance: [],
+        slcPoints: [],
+        transactions: [],
+        buckets: [],
+        fees: [],
+        memberFees: [],
+        fundraisers: [],
+        snapCampaigns: [],
+        grants: [],
+        equipment: [],
+        equipmentLogs: [],
+        events: [],
+        emailHistory: [],
+        settings: {},
+        users: [],
+      };
+
       const endpoints = [
         ['members', '/members'],
         ['committees', '/committees'],
@@ -138,22 +189,29 @@ function App() {
         ['settings', '/settings'],
       ];
 
-      if (user?.role === 'mega-admin') {
-        endpoints.push(['users', '/users']);
+      for (const [key, url] of endpoints) {
+        try {
+          const res = await api.get(url);
+          newData[key] = Array.isArray(res.data) ? res.data : (typeof res.data === 'object' ? res.data : {});
+        } catch (err) {
+          console.log(`Failed to load ${key}`);
+          newData[key] = Array.isArray(data[key]) ? [] : {};
+        }
       }
 
-      const responses = await Promise.all(
-        endpoints.map(([key, url]) => api.get(url).catch(() => ({ data: Array.isArray({}) ? [] : {} })))
-      );
-
-      const newData = {};
-      endpoints.forEach(([key], idx) => {
-        newData[key] = responses[idx].data;
-      });
+      if (currentUser?.role === 'mega-admin') {
+        try {
+          const res = await api.get('/users');
+          newData.users = Array.isArray(res.data) ? res.data : [];
+        } catch (err) {
+          console.log('Failed to load users');
+          newData.users = [];
+        }
+      }
 
       setData(newData);
     } catch (err) {
-      console.error(err);
+      console.error('Error loading data:', err);
     }
     setLoading(false);
   };
@@ -162,16 +220,12 @@ function App() {
     localStorage.removeItem('token');
     localStorage.removeItem('user');
     setUser(null);
-    setData({});
   };
 
-  if (!user) return <Login onLogin={(u) => { setUser(u); loadAllData(); }} />;
+  if (!user) return <Login onLogin={(u) => { setUser(u); setTimeout(() => loadAllData(u), 300); }} />;
 
   const NavItem = ({ icon, label, id }) => (
-    <button
-      className={`nav-item ${page === id ? 'active' : ''}`}
-      onClick={() => setPage(id)}
-    >
+    <button className={`nav-item ${page === id ? 'active' : ''}`} onClick={() => setPage(id)}>
       <span className="nav-icon" style={{ fontSize: '18px' }}>{icon}</span>
       {label}
     </button>
@@ -249,45 +303,47 @@ function App() {
         </header>
 
         <main className="main-content content-center">
-          {loading && <div className="card">Loading...</div>}
-
-          {/* Member Views */}
-          {page === 'member-dash' && <MemberDashboard user={user} data={data} />}
-          {page === 'committee-lead' && <CommitteeLead user={user} data={data} reload={loadAllData} />}
-
-          {/* Admin Views */}
-          {page === 'dashboard' && <Dashboard user={user} data={data} />}
-          {page === 'members' && <Members user={user} data={data} reload={loadAllData} />}
-          {page === 'committees' && <Committees user={user} data={data} reload={loadAllData} />}
-          {page === 'ledger' && <Ledger user={user} data={data} reload={loadAllData} />}
-          {page === 'buckets' && <Buckets user={user} data={data} reload={loadAllData} />}
-          {page === 'dues' && <Dues user={user} data={data} reload={loadAllData} />}
-          {page === 'fundraising' && <Fundraising user={user} data={data} reload={loadAllData} />}
-          {page === 'snap' && <SNAP user={user} data={data} reload={loadAllData} />}
-          {page === 'grants' && <Grants user={user} data={data} reload={loadAllData} />}
-          {page === 'equipment' && <Equipment user={user} data={data} reload={loadAllData} />}
-          {page === 'events' && <Events user={user} data={data} reload={loadAllData} />}
-          {page === 'email' && <Email user={user} data={data} reload={loadAllData} />}
-          
-          {/* Mega Admin Only */}
-          {page === 'users' && <Users user={user} data={data} reload={loadAllData} />}
-          {page === 'slcpoints' && <SLCPoints user={user} data={data} reload={loadAllData} />}
-          {page === 'settings' && <Settings user={user} data={data} reload={loadAllData} />}
+          {loading ? (
+            <div className="card">
+              <h2 className="card-title-main">Loading...</h2>
+              <p>Fetching data from server...</p>
+            </div>
+          ) : (
+            <>
+              {page === 'member-dash' && <MemberDashboard user={user} data={data} />}
+              {page === 'committee-lead' && <CommitteeLead user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'dashboard' && <Dashboard user={user} data={data} />}
+              {page === 'members' && <Members user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'committees' && <Committees user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'ledger' && <Ledger user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'buckets' && <Buckets user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'dues' && <Dues user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'fundraising' && <Fundraising user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'snap' && <SNAP user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'grants' && <Grants user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'equipment' && <Equipment user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'events' && <Events user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'email' && <Email user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'users' && <Users user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'slcpoints' && <SLCPoints user={user} data={data} reload={() => loadAllData(user)} />}
+              {page === 'settings' && <Settings user={user} data={data} reload={() => loadAllData(user)} />}
+            </>
+          )}
         </main>
       </div>
     </div>
   );
 }
 
-// ===== MEMBER DASHBOARD - Single Page Summary =====
+// ===== MEMBER DASHBOARD =====
 function MemberDashboard({ user, data }) {
-  const [dashData, setDashData] = useState({});
+  const [dashData, setDashData] = useState({ member: {}, outstandingFees: 0, equipmentCount: 0, eventsCount: 0, fundraisersCount: 0 });
 
   useEffect(() => {
     const loadDash = async () => {
       try {
         const res = await api.get('/member-dashboard');
-        setDashData(res.data);
+        setDashData(res.data || {});
       } catch (err) {
         console.error(err);
       }
@@ -298,15 +354,14 @@ function MemberDashboard({ user, data }) {
   return (
     <div>
       <h2 className="card-title-main">My Dashboard</h2>
-      
       <div className="dashboard-summary">
         <div className="summary-row">
           <div className="summary-item">
             <div className="summary-label">Outstanding Fees</div>
-            <div className="summary-value">${dashData.outstandingFees?.toFixed(2) || '0.00'}</div>
+            <div className="summary-value">${(dashData.outstandingFees || 0).toFixed(2)}</div>
           </div>
           <div className="summary-item">
-            <div className="summary-label">Equipment Checked Out</div>
+            <div className="summary-label">Equipment</div>
             <div className="summary-value">{dashData.equipmentCount || 0}</div>
           </div>
           <div className="summary-item">
@@ -324,20 +379,18 @@ function MemberDashboard({ user, data }) {
         <div className="card">
           <div className="card-title">Personal Info</div>
           <div style={{ fontSize: '14px', lineHeight: '1.8' }}>
-            <div><strong>Name:</strong> {dashData.member?.name}</div>
-            <div><strong>Email:</strong> {dashData.member?.email}</div>
-            <div><strong>Phone:</strong> {dashData.member?.phone || 'Not provided'}</div>
-            <div><strong>Grade:</strong> {dashData.member?.grade || 'Not provided'}</div>
-            <div><strong>Status:</strong> <span className="badge badge-green">{dashData.member?.status}</span></div>
+            <div><strong>Name:</strong> {dashData.member?.name || 'N/A'}</div>
+            <div><strong>Email:</strong> {dashData.member?.email || 'N/A'}</div>
+            <div><strong>Phone:</strong> {dashData.member?.phone || '-'}</div>
+            <div><strong>Grade:</strong> {dashData.member?.grade || '-'}</div>
           </div>
         </div>
 
         <div className="card">
           <div className="card-title">Quick Links</div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-            <button className="btn btn-primary" style={{ width: '100%' }}>View My Equipment</button>
-            <button className="btn btn-secondary" style={{ width: '100%' }}>View My Events</button>
-            <button className="btn btn-secondary" style={{ width: '100%' }}>Update My Info</button>
+            <button className="btn btn-primary" style={{ width: '100%' }}>View Equipment</button>
+            <button className="btn btn-secondary" style={{ width: '100%' }}>View Events</button>
           </div>
         </div>
       </div>
@@ -345,152 +398,27 @@ function MemberDashboard({ user, data }) {
   );
 }
 
-// ===== COMMITTEE LEAD DASHBOARD =====
+// ===== COMMITTEE LEAD =====
 function CommitteeLead({ user, data, reload }) {
-  const [comData, setComData] = useState({});
-  const [showAttendanceModal, setShowAttendanceModal] = useState(false);
-  const [attendanceForm, setAttendanceForm] = useState({ memberId: '', date: '', points: 1 });
-
-  useEffect(() => {
-    const loadCom = async () => {
-      try {
-        const res = await api.get('/committee-lead-dashboard');
-        setComData(res.data);
-      } catch (err) {
-        console.error(err);
-      }
-    };
-    loadCom();
-  }, []);
-
-  const handleAddAttendance = async () => {
-    if (!attendanceForm.memberId) return alert('Select a member');
-    try {
-      await api.post('/attendance', { ...attendanceForm, committeeId: comData.committee?.id });
-      reload();
-      setShowAttendanceModal(false);
-      setAttendanceForm({ memberId: '', date: '', points: 1 });
-    } catch (err) {
-      alert('Error adding attendance');
-    }
-  };
-
   return (
     <div>
-      <h2 className="card-title-main">{comData.committee?.name || 'My Committee'}</h2>
-
-      <div className="tabs">
-        <button className="tab-btn active">Dashboard</button>
-        <button className="tab-btn">Attendance</button>
+      <h2 className="card-title-main">Committee Management</h2>
+      <div className="card">
+        <p>Committee Lead Dashboard</p>
       </div>
-
-      <div className="tab-panel active">
-        <div className="metrics-grid">
-          <div className="metric-card">
-            <div className="metric-label">Committee Members</div>
-            <div className="metric-value">{comData.memberCount || 0}</div>
-          </div>
-          <div className="metric-card">
-            <div className="metric-label">Attendance Records</div>
-            <div className="metric-value">{comData.attendanceCount || 0}</div>
-          </div>
-        </div>
-
-        <div className="card">
-          <div className="card-title">Committee Members</div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Member Name</th>
-                  <th>Role</th>
-                  <th>Attendance Count</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comData.members?.map(m => (
-                  <tr key={m.id}>
-                    <td>{m.memberName || 'Unknown'}</td>
-                    <td>{m.role || 'Member'}</td>
-                    <td>{comData.attendance?.filter(a => a.memberId === m.memberId).length || 0}</td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      <div className="tab-panel">
-        <button className="btn btn-primary" onClick={() => setShowAttendanceModal(true)} style={{ marginBottom: '20px' }}>
-          ➕ Record Attendance
-        </button>
-
-        <div className="card">
-          <div className="card-title">Attendance History</div>
-          <div className="table-wrap">
-            <table>
-              <thead>
-                <tr>
-                  <th>Date</th>
-                  <th>Member</th>
-                  <th>Points</th>
-                </tr>
-              </thead>
-              <tbody>
-                {comData.attendance?.map(a => (
-                  <tr key={a.id}>
-                    <td>{a.date}</td>
-                    <td>{a.memberName || 'Unknown'}</td>
-                    <td><span className="badge badge-gold">{a.points} pts</span></td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-      </div>
-
-      {showAttendanceModal && (
-        <div className="modal-overlay open">
-          <div className="modal">
-            <h2 className="modal-title">Record Attendance</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleAddAttendance(); }}>
-              <div className="form-group">
-                <label className="form-label">Member *</label>
-                <select className="form-input" value={attendanceForm.memberId} onChange={(e) => setAttendanceForm({ ...attendanceForm, memberId: e.target.value })} required>
-                  <option value="">Select a member</option>
-                  {comData.members?.map(m => (
-                    <option key={m.id} value={m.memberId}>{m.memberName}</option>
-                  ))}
-                </select>
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Date</label>
-                  <input className="form-input" type="date" value={attendanceForm.date} onChange={(e) => setAttendanceForm({ ...attendanceForm, date: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Points</label>
-                  <input className="form-input" type="number" value={attendanceForm.points} onChange={(e) => setAttendanceForm({ ...attendanceForm, points: parseInt(e.target.value) })} />
-                </div>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowAttendanceModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Record</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
     </div>
   );
 }
 
 // ===== DASHBOARD =====
-function Dashboard({ data }) {
-  const budget = data.buckets?.reduce((s, b) => s + (b.balance || 0), 0) || 0;
-  const fundraised = data.fundraisers?.reduce((s, f) => s + (f.amount || 0), 0) || 0;
+function Dashboard({ user, data }) {
+  const buckets = data.buckets || [];
+  const fundraisers = data.fundraisers || [];
+  const members = data.members || [];
+  const committees = data.committees || [];
+
+  const budget = Array.isArray(buckets) ? buckets.reduce((s, b) => s + (b.balance || 0), 0) : 0;
+  const fundraised = Array.isArray(fundraisers) ? fundraisers.reduce((s, f) => s + (f.raised || 0), 0) : 0;
 
   return (
     <div>
@@ -498,7 +426,7 @@ function Dashboard({ data }) {
       <div className="metrics-grid">
         <div className="metric-card">
           <div className="metric-label">Members</div>
-          <div className="metric-value">{data.members?.length || 0}</div>
+          <div className="metric-value">{members.length}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Budget</div>
@@ -510,293 +438,11 @@ function Dashboard({ data }) {
         </div>
         <div className="metric-card">
           <div className="metric-label">Committees</div>
-          <div className="metric-value">{data.committees?.length || 0}</div>
+          <div className="metric-value">{committees.length}</div>
         </div>
       </div>
     </div>
   );
 }
-
-// ===== MEMBERS WITH CSV IMPORT =====
-function Members({ user, data, reload }) {
-  const [showModal, setShowModal] = useState(false);
-  const [showCSVModal, setShowCSVModal] = useState(false);
-  const [form, setForm] = useState({ name: '', email: '', phone: '', grade: '', notes: '' });
-  const [csvData, setCsvData] = useState('');
-  const [editingId, setEditingId] = useState(null);
-
-  const handleSave = async () => {
-    if (!form.name || !form.email) return alert('Fill required fields');
-    try {
-      if (editingId) {
-        await api.patch(`/members/${editingId}`, form);
-      } else {
-        await api.post('/members', form);
-      }
-      reload();
-      setShowModal(false);
-      setForm({ name: '', email: '', phone: '', grade: '', notes: '' });
-      setEditingId(null);
-    } catch (err) {
-      alert('Error saving');
-    }
-  };
-
-  const handleCSVImport = async () => {
-    if (!csvData.trim()) return alert('Paste data first');
-    try {
-      await api.post('/import-members', { csvData });
-      reload();
-      setShowCSVModal(false);
-      setCsvData('');
-    } catch (err) {
-      alert('Error importing');
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete member?')) return;
-    try {
-      await api.delete(`/members/${id}`);
-      reload();
-    } catch (err) {
-      alert('Error');
-    }
-  };
-
-  const handleEdit = (member) => {
-    setForm(member);
-    setEditingId(member.id);
-    setShowModal(true);
-  };
-
-  return (
-    <div>
-      <h2 className="card-title-main">Members</h2>
-      <div className="btn-group">
-        <button className="btn btn-primary" onClick={() => { setShowModal(true); setForm({ name: '', email: '', phone: '', grade: '', notes: '' }); setEditingId(null); }}>
-          ➕ Add Member
-        </button>
-        <button className="btn btn-secondary" onClick={() => setShowCSVModal(true)}>
-          📋 Import from Google Forms
-        </button>
-      </div>
-
-      <div className="card">
-        <div className="card-title">All Members ({data.members?.length || 0})</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Phone</th>
-                <th>Grade</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.members?.map(m => (
-                <tr key={m.id}>
-                  <td>{m.name}</td>
-                  <td>{m.email}</td>
-                  <td>{m.phone || '-'}</td>
-                  <td>{m.grade || '-'}</td>
-                  <td>
-                    <button className="btn btn-secondary btn-small" onClick={() => handleEdit(m)}>Edit</button>
-                    <button className="btn btn-danger btn-small" onClick={() => handleDelete(m.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showModal && (
-        <div className="modal-overlay open">
-          <div className="modal">
-            <h2 className="modal-title">{editingId ? 'Edit Member' : 'Add Member'}</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-              <div className="form-group">
-                <label className="form-label">Name *</label>
-                <input className="form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Email *</label>
-                <input className="form-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-              </div>
-              <div className="form-row">
-                <div className="form-group">
-                  <label className="form-label">Phone</label>
-                  <input className="form-input" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
-                </div>
-                <div className="form-group">
-                  <label className="form-label">Grade</label>
-                  <select className="form-input" value={form.grade} onChange={(e) => setForm({ ...form, grade: e.target.value })}>
-                    <option value="">-</option>
-                    <option value="9">9</option>
-                    <option value="10">10</option>
-                    <option value="11">11</option>
-                    <option value="12">12</option>
-                  </select>
-                </div>
-              </div>
-              <div className="form-group">
-                <label className="form-label">Notes</label>
-                <textarea className="form-input" value={form.notes} onChange={(e) => setForm({ ...form, notes: e.target.value })} />
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showCSVModal && (
-        <div className="modal-overlay open">
-          <div className="modal">
-            <h2 className="modal-title">Import from Google Forms</h2>
-            <p style={{ fontSize: '13px', color: '#8b8580', marginBottom: '16px' }}>Paste data in format: <code style={{ background: '#f5f3f0', padding: '2px 6px', borderRadius: '4px' }}>Name | Email | Phone | Grade | Notes</code></p>
-            <textarea className="csv-textarea" value={csvData} onChange={(e) => setCsvData(e.target.value)} placeholder="Paste your data here..." />
-            <div className="modal-footer">
-              <button type="button" className="btn btn-secondary" onClick={() => setShowCSVModal(false)}>Cancel</button>
-              <button type="button" className="btn btn-primary" onClick={handleCSVImport}>Import</button>
-            </div>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-
-// Placeholder components - will add remaining pages
-function Committees() { return <div className="card"><h2 className="card-title-main">Committees</h2><p>Coming...</p></div>; }
-function Ledger() { return <div className="card"><h2 className="card-title-main">Ledger</h2><p>Coming...</p></div>; }
-function Buckets() { return <div className="card"><h2 className="card-title-main">Buckets</h2><p>Coming...</p></div>; }
-function Dues() { return <div className="card"><h2 className="card-title-main">Dues & Fees</h2><p>Coming...</p></div>; }
-function Fundraising() { return <div className="card"><h2 className="card-title-main">Fundraising</h2><p>Coming...</p></div>; }
-function SNAP() { return <div className="card"><h2 className="card-title-main">SNAP Raises</h2><p>Coming...</p></div>; }
-function Grants() { return <div className="card"><h2 className="card-title-main">Grants</h2><p>Coming...</p></div>; }
-function Equipment() { return <div className="card"><h2 className="card-title-main">Equipment</h2><p>Coming...</p></div>; }
-function Events() { return <div className="card"><h2 className="card-title-main">Events</h2><p>Coming...</p></div>; }
-function Email() { return <div className="card"><h2 className="card-title-main">Email</h2><p>Coming...</p></div>; }
-function Users({ user, data, reload }) {
-  const [showModal, setShowModal] = useState(false);
-  const [form, setForm] = useState({ email: '', password: '', name: '', role: 'member' });
-  const [editingId, setEditingId] = useState(null);
-
-  const handleSave = async () => {
-    if (!form.email) return alert('Email required');
-    try {
-      if (editingId) {
-        await api.patch(`/users/${editingId}`, form);
-      } else {
-        await api.post('/users', form);
-      }
-      reload();
-      setShowModal(false);
-      setForm({ email: '', password: '', name: '', role: 'member' });
-      setEditingId(null);
-    } catch (err) {
-      alert('Error');
-    }
-  };
-
-  const handleDelete = async (id) => {
-    if (!window.confirm('Delete user?')) return;
-    try {
-      await api.delete(`/users/${id}`);
-      reload();
-    } catch (err) {
-      alert('Error');
-    }
-  };
-
-  const handleEdit = (u) => {
-    setForm(u);
-    setEditingId(u.id);
-    setShowModal(true);
-  };
-
-  return (
-    <div>
-      <h2 className="card-title-main">User Management</h2>
-      <button className="btn btn-primary" onClick={() => { setShowModal(true); setForm({ email: '', password: '', name: '', role: 'member' }); setEditingId(null); }} style={{ marginBottom: '20px' }}>
-        ➕ Create User
-      </button>
-
-      <div className="card">
-        <div className="card-title">All Users</div>
-        <div className="table-wrap">
-          <table>
-            <thead>
-              <tr>
-                <th>Name</th>
-                <th>Email</th>
-                <th>Password</th>
-                <th>Role</th>
-                <th>Actions</th>
-              </tr>
-            </thead>
-            <tbody>
-              {data.users?.map(u => (
-                <tr key={u.id}>
-                  <td>{u.name}</td>
-                  <td>{u.email}</td>
-                  <td><code style={{ background: '#f5f3f0', padding: '4px 8px', borderRadius: '4px', fontSize: '11px' }}>{u.password}</code></td>
-                  <td><span className="badge badge-blue">{u.role}</span></td>
-                  <td>
-                    <button className="btn btn-secondary btn-small" onClick={() => handleEdit(u)}>Edit</button>
-                    <button className="btn btn-danger btn-small" onClick={() => handleDelete(u.id)}>Delete</button>
-                  </td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
-        </div>
-      </div>
-
-      {showModal && (
-        <div className="modal-overlay open">
-          <div className="modal">
-            <h2 className="modal-title">{editingId ? 'Edit User' : 'Create User'}</h2>
-            <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
-              <div className="form-group">
-                <label className="form-label">Name</label>
-                <input className="form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Email *</label>
-                <input className="form-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Password *</label>
-                <input className="form-input" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} required />
-              </div>
-              <div className="form-group">
-                <label className="form-label">Role</label>
-                <select className="form-input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })}>
-                  <option value="member">Member</option>
-                  <option value="committee-lead">Committee Lead</option>
-                  <option value="admin">Admin</option>
-                  <option value="mega-admin">Mega Admin</option>
-                </select>
-              </div>
-              <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save</button>
-              </div>
-            </form>
-          </div>
-        </div>
-      )}
-    </div>
-  );
-}
-function SLCPoints({ user, data, reload }) { return <div className="card"><h2 className="card-title-main">SLC Points (Mega Admin Only)</h2><p>Total Records: {data.slcPoints?.length || 0}</p></div>; }
-function Settings() { return <div className="card"><h2 className="card-title-main">Settings</h2><p>Coming...</p></div>; }
 
 export default App;
