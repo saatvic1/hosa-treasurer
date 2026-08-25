@@ -18,11 +18,11 @@ export default function Committees({ user, data, reload }) {
   const members = data.members || [];
 
   useEffect(() => {
-  if (!showModal) {
-    setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
-    setEditingId(null);
-  }
-}, [showModal]);
+    if (!showModal) {
+      setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
+      setEditingId(null);
+    }
+  }, [showModal]);
 
   const handleSave = async () => {
     if (!form.name) return alert('Committee name required');
@@ -102,11 +102,23 @@ export default function Committees({ user, data, reload }) {
     }
   };
 
+  const openCreateModal = () => {
+    setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
+    setEditingId(null);
+    setShowModal(true);
+  };
+
+  const openEditModal = (committee) => {
+    setForm({ ...committee });
+    setEditingId(committee.id);
+    setShowModal(true);
+  };
+
   return (
     <div>
       <h2 className="card-title-main">Committees</h2>
 
-      <button className="btn btn-primary" onClick={() => { setShowModal(true); setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 }); setEditingId(null); }} style={{ marginBottom: '20px' }}>
+      <button className="btn btn-primary" onClick={openCreateModal} style={{ marginBottom: '20px' }}>
         ➕ Create Committee
       </button>
 
@@ -136,7 +148,7 @@ export default function Committees({ user, data, reload }) {
                       </button>
                     </td>
                     <td>
-                      <button className="btn btn-secondary btn-small" onClick={() => { setForm(c); setEditingId(c.id); setShowModal(true); }}>Edit</button>
+                      <button className="btn btn-secondary btn-small" onClick={() => openEditModal(c)}>Edit</button>
                       <button className="btn btn-danger btn-small" onClick={() => handleDelete(c.id)}>Delete</button>
                     </td>
                   </tr>
@@ -160,7 +172,7 @@ export default function Committees({ user, data, reload }) {
               </div>
               <div className="form-group">
                 <label className="form-label">Chair</label>
-                <select className="form-input" value={form.chair} onChange={(e) => setForm({ ...form, chair: e.target.value })}>
+                <select className="form-input" value={form.chair || ''} onChange={(e) => setForm({ ...form, chair: e.target.value })}>
                   <option value="">Select chair...</option>
                   {members.map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
