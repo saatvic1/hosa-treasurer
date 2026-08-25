@@ -170,12 +170,10 @@ export default function Committees({ user, data, reload }) {
               <div className="form-group">
                 <label className="form-label">Chair</label>
                 <select 
+                  key={`chair-${editingId || 'new'}`}
                   className="form-input" 
                   value={form.chair || ''} 
-                  onChange={(e) => {
-                    console.log('Selected chair:', e.target.value);
-                    setForm({ ...form, chair: e.target.value });
-                  }}
+                  onChange={(e) => setForm({ ...form, chair: e.target.value })}
                 >
                   <option value="">Select chair...</option>
                   {members && members.length > 0 && members.map(m => (
