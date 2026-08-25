@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api', timeout: 10000 });
+import api from '../api';
 
 export default function Settings({ user, data, reload }) {
   const [settings, setSettings] = useState({

@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
-
+import api from '../api';
 export default function SLCPoints({ user, data, reload }) {
   const [searchMember, setSearchMember] = useState('');
   const [slcPoints, setSlcPoints] = useState(data.slcPoints || []);

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api', timeout: 10000 });
+import api from '../api';
 
 export default function Users({ user, data, reload }) {
   const [showModal, setShowModal] = useState(false);
