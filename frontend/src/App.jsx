@@ -145,7 +145,7 @@ function App() {
       api.defaults.headers.authorization = `Bearer ${token}`;
       loadAllData(user);
     }
-  }, []);
+  }, [loadAllData]);
 
   const loadAllData = async (currentUser) => {
     setLoading(true);

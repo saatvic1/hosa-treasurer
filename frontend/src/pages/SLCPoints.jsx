@@ -1,11 +1,9 @@
 import React, { useState } from 'react';
-import axios from 'axios';
 
 export default function SLCPoints({ user, data, reload }) {
   const [searchMember, setSearchMember] = useState('');
-  const [slcPoints, setSlcPoints] = useState(data.slcPoints || []);
+  const [slcPoints] = useState(data.slcPoints || []);
 
-  const members = data.members || [];
   const filtered = slcPoints.filter(p =>
     (p.memberName || '').toLowerCase().includes(searchMember.toLowerCase())
   );
