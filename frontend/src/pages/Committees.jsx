@@ -4,11 +4,15 @@ import api from '../api';
 export default function Committees({ user, data, reload }) {
   const [showModal, setShowModal] = useState(false);
   const [showMembersModal, setShowMembersModal] = useState(false);
+  const [showSLCModal, setShowSLCModal] = useState(false);
   const [form, setForm] = useState({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
   const [editingId, setEditingId] = useState(null);
   const [selectedCommitteeId, setSelectedCommitteeId] = useState(null);
   const [committeeMembers, setCommitteeMembers] = useState([]);
   const [selectedMemberToAdd, setSelectedMemberToAdd] = useState('');
+  const [selectedMemberForSLC, setSelectedMemberForSLC] = useState(null);
+  const [slcWeek, setSlcWeek] = useState('1');
+  const [slcRating, setSlcRating] = useState('0');
 
   const committees = data.committees || [];
   const members = data.members || [];
@@ -72,6 +76,24 @@ export default function Committees({ user, data, reload }) {
     }
   };
 
+  const handleAssignSLC = async () => {
+    if (!selectedMemberForSLC) return;
+    try {
+      await api.post(`/committees/${selectedCommitteeId}/slc-points`, {
+        memberId: selectedMemberForSLC.memberId,
+        week: slcWeek,
+        rating: parseInt(slcRating)
+      });
+      setShowSLCModal(false);
+      setSelectedMemberForSLC(null);
+      setSlcWeek('1');
+      setSlcRating('0');
+      loadCommitteeMembers(selectedCommitteeId);
+    } catch (err) {
+      alert('Error assigning SLC points');
+    }
+  };
+
   return (
     <div>
       <h2 className="card-title-main">Committees</h2>
@@ -119,6 +141,7 @@ export default function Committees({ user, data, reload }) {
         </div>
       </div>
 
+      {/* CREATE/EDIT COMMITTEE MODAL */}
       {showModal && (
         <div className="modal-overlay open">
           <div className="modal">
@@ -158,9 +181,10 @@ export default function Committees({ user, data, reload }) {
         </div>
       )}
 
+      {/* MANAGE MEMBERS MODAL */}
       {showMembersModal && (
         <div className="modal-overlay open">
-          <div className="modal">
+          <div className="modal" style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
             <h2 className="modal-title">Manage Committee Members</h2>
             
             <div className="form-group">
@@ -181,12 +205,23 @@ export default function Committees({ user, data, reload }) {
               {committeeMembers.length > 0 ? (
                 <div style={{ maxHeight: '300px', overflowY: 'auto' }}>
                   {committeeMembers.map(m => (
-                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '10px', borderBottom: '1px solid #e8e3de' }}>
+                    <div key={m.id} style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', padding: '12px', borderBottom: '1px solid #e8e3de' }}>
                       <div>
                         <strong>{m.memberName}</strong>
                         <p style={{ fontSize: '12px', color: '#8b8580', margin: '2px 0' }}>{m.memberEmail}</p>
                       </div>
-                      <button className="btn btn-danger btn-small" onClick={() => handleRemoveMember(m.id)}>Remove</button>
+                      <div style={{ display: 'flex', gap: '8px' }}>
+                        <button 
+                          className="btn btn-primary btn-small" 
+                          onClick={() => {
+                            setSelectedMemberForSLC(m);
+                            setShowSLCModal(true);
+                          }}
+                        >
+                          ⭐ Rate
+                        </button>
+                        <button className="btn btn-danger btn-small" onClick={() => handleRemoveMember(m.id)}>Remove</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -197,6 +232,64 @@ export default function Committees({ user, data, reload }) {
 
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowMembersModal(false)}>Close</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* SLC POINTS RATING MODAL */}
+      {showSLCModal && selectedMemberForSLC && (
+        <div className="modal-overlay open">
+          <div className="modal">
+            <h2 className="modal-title">Assign SLC Points</h2>
+            <p style={{ color: '#8b8580', marginBottom: '20px' }}>
+              Rating for: <strong>{selectedMemberForSLC.memberName}</strong>
+            </p>
+
+            <div className="form-group">
+              <label className="form-label">Week Number</label>
+              <input 
+                className="form-input" 
+                type="number" 
+                value={slcWeek} 
+                onChange={(e) => setSlcWeek(e.target.value)} 
+                min="1"
+                max="52"
+              />
+            </div>
+
+            <div className="form-group">
+              <label className="form-label">Participation Rating (0-3)</label>
+              <div style={{ display: 'flex', gap: '12px', marginTop: '10px' }}>
+                {[0, 1, 2, 3].map(rating => (
+                  <button
+                    key={rating}
+                    type="button"
+                    onClick={() => setSlcRating(String(rating))}
+                    style={{
+                      flex: 1,
+                      padding: '16px',
+                      fontSize: '18px',
+                      fontWeight: 'bold',
+                      border: slcRating === String(rating) ? '2px solid #2d5a3d' : '2px solid #e8e3de',
+                      borderRadius: '8px',
+                      background: slcRating === String(rating) ? '#e8f4f0' : '#f5f3f0',
+                      color: slcRating === String(rating) ? '#2d5a3d' : '#8b8580',
+                      cursor: 'pointer'
+                    }}
+                  >
+                    {rating}
+                  </button>
+                ))}
+              </div>
+              <p style={{ fontSize: '12px', color: '#8b8580', marginTop: '8px' }}>
+                0 = No participation | 3 = Excellent participation
+              </p>
+            </div>
+
+            <div className="modal-footer">
+              <button className="btn btn-secondary" onClick={() => { setShowSLCModal(false); setSelectedMemberForSLC(null); }}>Cancel</button>
+              <button className="btn btn-primary" onClick={handleAssignSLC}>Save Rating</button>
             </div>
           </div>
         </div>

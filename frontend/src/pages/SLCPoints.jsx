@@ -2,41 +2,78 @@ import React, { useState, useEffect } from 'react';
 import api from '../api';
 
 export default function SLCPoints({ user, data, reload }) {
-  const [allPoints, setAllPoints] = useState([]);
-  const [searchMember, setSearchMember] = useState('');
-  const [viewMode, setViewMode] = useState('list');
+  const [members, setMembers] = useState([]);
+  const [memberPoints, setMemberPoints] = useState({});
+  const [showModal, setShowModal] = useState(false);
+  const [selectedMember, setSelectedMember] = useState(null);
+  const [pointsToAdd, setPointsToAdd] = useState('');
+  const [reason, setReason] = useState('');
+  const [searchTerm, setSearchTerm] = useState('');
 
   useEffect(() => {
-    if (user?.role === 'mega-admin') {
-      loadAllPoints();
-    } else {
-      setAllPoints([]);
-    }
-  }, [user]);
+    loadData();
+  }, [data]);
 
-  const loadAllPoints = async () => {
+  const loadData = async () => {
     try {
-      const res = await api.get('/api/slc-points-all');
-      setAllPoints(res.data || []);
+      setMembers(data.members || []);
+      
+      // Calculate total points per member from all sources
+      const points = {};
+      (data.members || []).forEach(m => {
+        points[m.id] = 0;
+      });
+      
+      setMemberPoints(points);
     } catch (err) {
-      console.error('Error loading points');
+      console.error('Error loading data');
     }
   };
 
-  const filtered = allPoints.filter(p =>
-    (p.memberName || '').toLowerCase().includes(searchMember.toLowerCase()) ||
-    (p.committeeName || '').toLowerCase().includes(searchMember.toLowerCase())
+  const handleAddPoints = async () => {
+    if (!selectedMember || !pointsToAdd) return alert('Select member and enter points');
+    
+    const pts = parseInt(pointsToAdd);
+    if (isNaN(pts) || pts < 0) return alert('Enter valid points');
+
+    try {
+      await api.post('/api/slc-points', {
+        memberId: selectedMember.id,
+        points: pts,
+        reason: reason || 'Manual award',
+        date: new Date().toISOString()
+      });
+      
+      setMemberPoints({
+        ...memberPoints,
+        [selectedMember.id]: (memberPoints[selectedMember.id] || 0) + pts
+      });
+      
+      setShowModal(false);
+      setSelectedMember(null);
+      setPointsToAdd('');
+      setReason('');
+      
+      if (reload) reload();
+    } catch (err) {
+      alert('Error adding points');
+    }
+  };
+
+  const filteredMembers = members.filter(m =>
+    m.name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+    m.email.toLowerCase().includes(searchTerm.toLowerCase())
   );
 
-  const totalPoints = filtered.reduce((s, p) => s + (p.rating || 0), 0);
-  const membersWithPoints = [...new Set(filtered.map(p => p.memberId))].length;
+  const totalPoints = Object.values(memberPoints).reduce((sum, p) => sum + p, 0);
 
-  if (user?.role !== 'mega-admin') {
+  // Only mega-admin and admin can assign points
+  if (user?.role !== 'mega-admin' && user?.role !== 'admin') {
     return (
       <div>
         <h2 className="card-title-main">SLC Points</h2>
         <div className="card">
-          <p style={{ color: '#8b8580' }}>SLC Points tracking is visible only to Mega Admins</p>
+          <p style={{ color: '#8b8580' }}>SLC Points management is available to admins only</p>
         </div>
       </div>
     );
@@ -44,124 +81,164 @@ export default function SLCPoints({ user, data, reload }) {
 
   return (
     <div>
-      <h2 className="card-title-main">SLC Points - Mega Admin View</h2>
+      <h2 className="card-title-main">SLC Points Management</h2>
 
       <div className="metrics-grid">
         <div className="metric-card">
-          <div className="metric-label">Total Points</div>
+          <div className="metric-label">Total Points Awarded</div>
           <div className="metric-value" style={{ color: '#d4a574' }}>{totalPoints}</div>
         </div>
         <div className="metric-card">
           <div className="metric-label">Members Tracked</div>
-          <div className="metric-value">{membersWithPoints}</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Total Ratings</div>
-          <div className="metric-value">{filtered.length}</div>
+          <div className="metric-value">{members.length}</div>
         </div>
       </div>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
-        <button 
-          className={`btn ${viewMode === 'list' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setViewMode('list')}
-        >
-          📋 List View
-        </button>
-        <button 
-          className={`btn ${viewMode === 'summary' ? 'btn-primary' : 'btn-secondary'}`}
-          onClick={() => setViewMode('summary')}
-        >
-          📊 Summary View
-        </button>
-      </div>
+      <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginBottom: '20px' }}>
+        ⭐ Award Points to Member
+      </button>
 
       <div className="card">
-        <div className="card-title">Search Points</div>
+        <div className="card-title">Search Members</div>
         <input
           type="text"
-          placeholder="Search by member or committee..."
-          value={searchMember}
-          onChange={(e) => setSearchMember(e.target.value)}
+          placeholder="Search by name or email..."
+          value={searchTerm}
+          onChange={(e) => setSearchTerm(e.target.value)}
           className="form-input"
         />
       </div>
 
-      {viewMode === 'list' ? (
-        <div className="card" style={{ marginTop: '20px' }}>
-          <div className="card-title">All SLC Ratings ({filtered.length})</div>
-          {filtered.length > 0 ? (
-            <div className="table-wrap">
-              <table>
-                <thead>
-                  <tr>
-                    <th>Member</th>
-                    <th>Committee</th>
-                    <th>Week</th>
-                    <th>Rating (0-3)</th>
-                    <th>Rated By</th>
-                    <th>Date</th>
+      <div className="card" style={{ marginTop: '20px' }}>
+        <div className="card-title">All Members ({filteredMembers.length})</div>
+        {filteredMembers.length > 0 ? (
+          <div className="table-wrap">
+            <table>
+              <thead>
+                <tr>
+                  <th>Name</th>
+                  <th>Email</th>
+                  <th>Grade</th>
+                  <th>Current SLC Points</th>
+                  <th>Action</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredMembers.map(m => (
+                  <tr key={m.id}>
+                    <td><strong>{m.name}</strong></td>
+                    <td>{m.email}</td>
+                    <td>{m.grade || '-'}</td>
+                    <td>
+                      <span style={{
+                        padding: '6px 12px',
+                        borderRadius: '6px',
+                        background: '#e8f4f0',
+                        color: '#2d5a3d',
+                        fontWeight: 'bold',
+                        fontSize: '14px'
+                      }}>
+                        {memberPoints[m.id] || 0} pts
+                      </span>
+                    </td>
+                    <td>
+                      <button
+                        className="btn btn-primary btn-small"
+                        onClick={() => {
+                          setSelectedMember(m);
+                          setShowModal(true);
+                        }}
+                      >
+                        ⭐ Award
+                      </button>
+                    </td>
                   </tr>
-                </thead>
-                <tbody>
-                  {filtered.map(p => (
-                    <tr key={p.id}>
-                      <td><strong>{p.memberName}</strong></td>
-                      <td>{p.committeeName}</td>
-                      <td>Week {p.week}</td>
-                      <td>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          background: p.rating >= 2 ? '#e8f4f0' : p.rating === 1 ? '#fef5f0' : '#f5f3f0',
-                          color: p.rating >= 2 ? '#2d5a3d' : p.rating === 1 ? '#d4a574' : '#8b8580',
-                          fontWeight: 'bold'
-                        }}>
-                          {p.rating}/3
-                        </span>
-                      </td>
-                      <td>{p.ratedBy}</td>
-                      <td>{new Date(p.ratedDate).toLocaleDateString()}</td>
-                    </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        ) : (
+          <p style={{ color: '#8b8580' }}>No members found</p>
+        )}
+      </div>
+
+      {/* AWARD POINTS MODAL */}
+      {showModal && (
+        <div className="modal-overlay open">
+          <div className="modal">
+            <h2 className="modal-title">Award SLC Points</h2>
+            
+            {selectedMember && (
+              <p style={{ fontSize: '14px', color: '#8b8580', marginBottom: '20px' }}>
+                Member: <strong>{selectedMember.name}</strong> (Currently: <strong>{memberPoints[selectedMember.id] || 0} pts</strong>)
+              </p>
+            )}
+
+            {!selectedMember && (
+              <div className="form-group">
+                <label className="form-label">Select Member *</label>
+                <select 
+                  className="form-input" 
+                  onChange={(e) => {
+                    const member = members.find(m => m.id === e.target.value);
+                    setSelectedMember(member);
+                  }}
+                  defaultValue=""
+                >
+                  <option value="">Choose member...</option>
+                  {members.map(m => (
+                    <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
-                </tbody>
-              </table>
+                </select>
+              </div>
+            )}
+
+            {selectedMember && (
+              <>
+                <div className="form-group">
+                  <label className="form-label">Points to Award *</label>
+                  <input 
+                    className="form-input" 
+                    type="number" 
+                    value={pointsToAdd} 
+                    onChange={(e) => setPointsToAdd(e.target.value)}
+                    placeholder="Enter points (any number)"
+                    min="0"
+                  />
+                </div>
+
+                <div className="form-group">
+                  <label className="form-label">Reason (Optional)</label>
+                  <input 
+                    className="form-input" 
+                    type="text" 
+                    value={reason} 
+                    onChange={(e) => setReason(e.target.value)}
+                    placeholder="e.g., Attendance, Leadership, Event participation"
+                  />
+                </div>
+              </>
+            )}
+
+            <div className="modal-footer">
+              <button 
+                className="btn btn-secondary" 
+                onClick={() => {
+                  setShowModal(false);
+                  setSelectedMember(null);
+                  setPointsToAdd('');
+                  setReason('');
+                }}
+              >
+                Cancel
+              </button>
+              {selectedMember && (
+                <button className="btn btn-primary" onClick={handleAddPoints}>
+                  Award Points
+                </button>
+              )}
             </div>
-          ) : (
-            <p style={{ color: '#8b8580' }}>No ratings found</p>
-          )}
-        </div>
-      ) : (
-        <div className="card" style={{ marginTop: '20px' }}>
-          <div className="card-title">Member Summary</div>
-          {filtered.length > 0 ? (
-            <div>
-              {[...new Set(filtered.map(p => p.memberName))].map(memberName => {
-                const memberPoints = filtered.filter(p => p.memberName === memberName);
-                const avgRating = (memberPoints.reduce((s, p) => s + p.rating, 0) / memberPoints.length).toFixed(1);
-                return (
-                  <div key={memberName} style={{ padding: '16px', borderBottom: '1px solid #e8e3de' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      <div>
-                        <strong style={{ fontSize: '14px' }}>{memberName}</strong>
-                        <p style={{ fontSize: '12px', color: '#8b8580', margin: '4px 0' }}>
-                          {memberPoints.length} rating{memberPoints.length !== 1 ? 's' : ''}
-                        </p>
-                      </div>
-                      <div style={{ textAlign: 'right' }}>
-                        <div style={{ fontSize: '18px', fontWeight: 'bold', color: '#2d5a3d' }}>
-                          {avgRating}/3
-                        </div>
-                        <div style={{ fontSize: '12px', color: '#8b8580' }}>Average</div>
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          ) : (
-            <p style={{ color: '#8b8580' }}>No data available</p>
-          )}
+          </div>
         </div>
       )}
     </div>

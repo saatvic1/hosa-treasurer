@@ -29,6 +29,7 @@ const committees = [
 const committeeMembers = [];
 const weeklyNotes = [];
 const slcPointsTracking = [];
+const slcPointsHistory = [];
 
 const attendance = [];
 const slcPoints = [];
@@ -196,7 +197,7 @@ app.delete('/api/weekly-notes/:id', verifyToken, (req, res) => {
   res.json({ success: true });
 });
 
-// ===== SLC POINTS TRACKING =====
+// ===== SLC POINTS (Weekly 0-3 Committee Participation) =====
 app.get('/api/committees/:id/slc-points', verifyToken, (req, res) => {
   const { id } = req.params;
   const points = slcPointsTracking.filter(p => p.committeeId === id);
@@ -230,17 +231,45 @@ app.post('/api/committees/:id/slc-points', verifyToken, (req, res) => {
   res.json(newRating);
 });
 
+// ===== SLC POINTS (General Award - Any Amount) =====
+app.get('/api/slc-points', verifyToken, (req, res) => {
+  res.json(slcPointsHistory);
+});
+
+app.post('/api/slc-points', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin' && req.user.role !== 'admin') {
+    return res.status(403).json({ error: 'Forbidden' });
+  }
+  
+  const { memberId, points, reason } = req.body;
+  const newEntry = {
+    id: Date.now().toString(),
+    memberId: memberId,
+    points: parseInt(points),
+    reason: reason || 'Award',
+    awardedBy: req.user.id,
+    awardedDate: new Date().toISOString()
+  };
+  
+  slcPointsHistory.push(newEntry);
+  res.json(newEntry);
+});
+
 app.get('/api/slc-points-all', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin') {
     return res.status(403).json({ error: 'Forbidden' });
   }
-  const detailed = slcPointsTracking.map(p => {
+  
+  const detailed = slcPointsHistory.map(p => {
     const member = members.find(m => m.id === p.memberId);
-    const committee = committees.find(c => c.id === p.committeeId);
+    const totalPoints = slcPointsHistory
+      .filter(h => h.memberId === p.memberId)
+      .reduce((sum, h) => sum + h.points, 0);
+    
     return {
       ...p,
       memberName: member?.name || 'Unknown',
-      committeeName: committee?.name || 'Unknown'
+      memberRunningTotal: totalPoints
     };
   });
   res.json(detailed);
@@ -248,7 +277,6 @@ app.get('/api/slc-points-all', verifyToken, (req, res) => {
 
 // ===== OTHER ENDPOINTS =====
 app.get('/api/attendance', verifyToken, (req, res) => res.json(attendance));
-app.get('/api/slc-points', verifyToken, (req, res) => res.json(slcPoints));
 app.get('/api/transactions', verifyToken, (req, res) => res.json(transactions));
 app.post('/api/transactions', verifyToken, (req, res) => {
   const newTx = { id: Date.now().toString(), ...req.body };
