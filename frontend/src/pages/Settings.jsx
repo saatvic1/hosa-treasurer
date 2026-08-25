@@ -13,18 +13,18 @@ export default function Settings({ user, data, reload }) {
   const [saved, setSaved] = useState(false);
 
   useEffect(() => {
-    const loadSettings = async () => {
-      try {
-        const res = await api.get('/settings');
-        if (res.data) {
-          setSettings({ ...settings, ...res.data });
-        }
-      } catch (err) {
-        console.error('Error loading settings');
+  const loadSettings = async () => {
+    try {
+      const res = await api.get('/settings');
+      if (res.data) {
+        setSettings({ ...settings, ...res.data });
       }
-    };
-    loadSettings();
-  }, []);
+    } catch (err) {
+      console.error('Error loading settings');
+    }
+  };
+  loadSettings();
+}, [settings]);
 
   const handleSave = async () => {
     try {

@@ -1,8 +1,6 @@
 import React, { useState } from 'react';
 import axios from 'axios';
 
-const api = axios.create({ baseURL: '/api', timeout: 10000 });
-
 export default function SLCPoints({ user, data, reload }) {
   const [searchMember, setSearchMember] = useState('');
   const [slcPoints, setSlcPoints] = useState(data.slcPoints || []);
