@@ -17,7 +17,7 @@ import SLCPoints from './pages/SLCPoints';
 import Settings from './pages/Settings';
 
 const api = axios.create({
-  baseURL: 'https://practical-enthusiasm-production-9012.up.railway.app/api',
+  baseURL: '/api',
   timeout: 10000,
 });
 
