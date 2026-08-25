@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import api from '../api';
 
 export default function Committees({ user, data, reload }) {
@@ -17,12 +17,17 @@ export default function Committees({ user, data, reload }) {
   const committees = data.committees || [];
   const members = data.members || [];
 
-  useEffect(() => {
-    if (!showModal) {
-      setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
-      setEditingId(null);
-    }
-  }, [showModal]);
+  const handleCreateClick = () => {
+    setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
+    setEditingId(null);
+    setShowModal(true);
+  };
+
+  const handleEditClick = (committee) => {
+    setForm({ ...committee });
+    setEditingId(committee.id);
+    setShowModal(true);
+  };
 
   const handleSave = async () => {
     if (!form.name) return alert('Committee name required');
@@ -34,10 +39,8 @@ export default function Committees({ user, data, reload }) {
       }
       reload();
       setShowModal(false);
-      setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
-      setEditingId(null);
     } catch (err) {
-      alert('Error saving committee');
+      alert('Error saving committee: ' + err.message);
     }
   };
 
@@ -47,7 +50,7 @@ export default function Committees({ user, data, reload }) {
       await api.delete(`/committees/${id}`);
       reload();
     } catch (err) {
-      alert('Error');
+      alert('Error deleting committee');
     }
   };
 
@@ -56,6 +59,7 @@ export default function Committees({ user, data, reload }) {
       const res = await api.get(`/committees/${committeeId}/members`);
       setCommitteeMembers(res.data || []);
       setSelectedCommitteeId(committeeId);
+      setSelectedMemberToAdd('');
       setShowMembersModal(true);
     } catch (err) {
       alert('Error loading members');
@@ -69,7 +73,7 @@ export default function Committees({ user, data, reload }) {
       setSelectedMemberToAdd('');
       loadCommitteeMembers(selectedCommitteeId);
     } catch (err) {
-      alert('Error adding member');
+      alert('Error adding member: ' + err.message);
     }
   };
 
@@ -102,23 +106,11 @@ export default function Committees({ user, data, reload }) {
     }
   };
 
-  const openCreateModal = () => {
-    setForm({ name: '', description: '', chair: '', schedule: '', defaultPts: 0 });
-    setEditingId(null);
-    setShowModal(true);
-  };
-
-  const openEditModal = (committee) => {
-    setForm({ ...committee });
-    setEditingId(committee.id);
-    setShowModal(true);
-  };
-
   return (
     <div>
       <h2 className="card-title-main">Committees</h2>
 
-      <button className="btn btn-primary" onClick={openCreateModal} style={{ marginBottom: '20px' }}>
+      <button className="btn btn-primary" onClick={handleCreateClick} style={{ marginBottom: '20px' }}>
         ➕ Create Committee
       </button>
 
@@ -148,7 +140,7 @@ export default function Committees({ user, data, reload }) {
                       </button>
                     </td>
                     <td>
-                      <button className="btn btn-secondary btn-small" onClick={() => openEditModal(c)}>Edit</button>
+                      <button className="btn btn-secondary btn-small" onClick={() => handleEditClick(c)}>Edit</button>
                       <button className="btn btn-danger btn-small" onClick={() => handleDelete(c.id)}>Delete</button>
                     </td>
                   </tr>
@@ -168,31 +160,63 @@ export default function Committees({ user, data, reload }) {
             <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
               <div className="form-group">
                 <label className="form-label">Committee Name *</label>
-                <input className="form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
+                <input 
+                  className="form-input" 
+                  value={form.name} 
+                  onChange={(e) => setForm({ ...form, name: e.target.value })} 
+                  required 
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Chair</label>
-                <select className="form-input" value={form.chair || ''} onChange={(e) => setForm({ ...form, chair: e.target.value })}>
+                <select 
+                  className="form-input" 
+                  value={form.chair || ''} 
+                  onChange={(e) => {
+                    console.log('Selected chair:', e.target.value);
+                    setForm({ ...form, chair: e.target.value });
+                  }}
+                >
                   <option value="">Select chair...</option>
-                  {members.map(m => (
+                  {members && members.length > 0 && members.map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
               </div>
               <div className="form-group">
                 <label className="form-label">Schedule</label>
-                <input className="form-input" value={form.schedule} onChange={(e) => setForm({ ...form, schedule: e.target.value })} placeholder="e.g. Mondays 3pm" />
+                <input 
+                  className="form-input" 
+                  value={form.schedule} 
+                  onChange={(e) => setForm({ ...form, schedule: e.target.value })} 
+                  placeholder="e.g. Mondays 3pm" 
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Default SLC Points</label>
-                <input className="form-input" type="number" value={form.defaultPts} onChange={(e) => setForm({ ...form, defaultPts: parseInt(e.target.value) })} />
+                <input 
+                  className="form-input" 
+                  type="number" 
+                  value={form.defaultPts} 
+                  onChange={(e) => setForm({ ...form, defaultPts: parseInt(e.target.value) })} 
+                />
               </div>
               <div className="form-group">
                 <label className="form-label">Description</label>
-                <textarea className="form-input" value={form.description} onChange={(e) => setForm({ ...form, description: e.target.value })} />
+                <textarea 
+                  className="form-input" 
+                  value={form.description} 
+                  onChange={(e) => setForm({ ...form, description: e.target.value })} 
+                />
               </div>
               <div className="modal-footer">
-                <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
+                <button 
+                  type="button" 
+                  className="btn btn-secondary" 
+                  onClick={() => setShowModal(false)}
+                >
+                  Cancel
+                </button>
                 <button type="submit" className="btn btn-primary">Save</button>
               </div>
             </form>
@@ -208,13 +232,18 @@ export default function Committees({ user, data, reload }) {
             <div className="form-group">
               <label className="form-label">Add Member</label>
               <div style={{ display: 'flex', gap: '10px' }}>
-                <select className="form-input" value={selectedMemberToAdd} onChange={(e) => setSelectedMemberToAdd(e.target.value)} style={{ flex: 1 }}>
+                <select 
+                  className="form-input" 
+                  value={selectedMemberToAdd} 
+                  onChange={(e) => setSelectedMemberToAdd(e.target.value)} 
+                  style={{ flex: 1 }}
+                >
                   <option value="">Select member...</option>
                   {members.filter(m => !committeeMembers.find(cm => cm.memberId === m.id)).map(m => (
                     <option key={m.id} value={m.id}>{m.name}</option>
                   ))}
                 </select>
-                <button className="btn btn-primary" onClick={handleAddMember}>Add</button>
+                <button type="button" className="btn btn-primary" onClick={handleAddMember}>Add</button>
               </div>
             </div>
 
@@ -230,6 +259,7 @@ export default function Committees({ user, data, reload }) {
                       </div>
                       <div style={{ display: 'flex', gap: '8px' }}>
                         <button 
+                          type="button"
                           className="btn btn-primary btn-small" 
                           onClick={() => {
                             setSelectedMemberForSLC(m);
@@ -238,7 +268,7 @@ export default function Committees({ user, data, reload }) {
                         >
                           ⭐ Rate
                         </button>
-                        <button className="btn btn-danger btn-small" onClick={() => handleRemoveMember(m.id)}>Remove</button>
+                        <button type="button" className="btn btn-danger btn-small" onClick={() => handleRemoveMember(m.id)}>Remove</button>
                       </div>
                     </div>
                   ))}
@@ -249,7 +279,7 @@ export default function Committees({ user, data, reload }) {
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => setShowMembersModal(false)}>Close</button>
+              <button type="button" className="btn btn-secondary" onClick={() => setShowMembersModal(false)}>Close</button>
             </div>
           </div>
         </div>
@@ -305,8 +335,8 @@ export default function Committees({ user, data, reload }) {
             </div>
 
             <div className="modal-footer">
-              <button className="btn btn-secondary" onClick={() => { setShowSLCModal(false); setSelectedMemberForSLC(null); }}>Cancel</button>
-              <button className="btn btn-primary" onClick={handleAssignSLC}>Save Rating</button>
+              <button type="button" className="btn btn-secondary" onClick={() => { setShowSLCModal(false); setSelectedMemberForSLC(null); }}>Cancel</button>
+              <button type="button" className="btn btn-primary" onClick={handleAssignSLC}>Save Rating</button>
             </div>
           </div>
         </div>
