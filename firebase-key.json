@@ -1,0 +1,13 @@
+{
+  "type": "service_account",
+  "project_id": "hosa-treasurer",
+  "private_key_id": "f99cbbacff862e13ea54d02d19269982f2851683",
+  "private_key": "-----BEGIN PRIVATE KEY-----\nMIIEvQIBADANBgkqhkiG9w0BAQEFAASCBKcwggSjAgEAAoIBAQCx2l2sCkrB0V/T\nip5e409rzsLRwUNXwoauDsHep14vOAjt+49mXXT4g378YJHLV4fz8S66k1Z9oPG2\nMO+ObynnXZb9hehrIR/WNLcSTtF02ShzFlO/Znxc024NDxINxnawrIzlaM3fxb0W\nAlJYrzukVeZp9plTdmOSL8quzTMMVE+b2AelovXt4JGEN9OAu8EgnFzCgTRju4g9\nDuZ3KzIjhFu5j1vLEtBzqyif60GCz1+4FmhcwpNVLWrC3NO8vImh2GCPnHViQpjc\nz+GM/dKcwqwhlDfFj8ya+I8YXdzx4rP22eVYeUAnnUqtBW/oJpt8iW9oIzWlojm8\n86HICnoBAgMBAAECggEAA8+JXEToLyW8tBXVqNpqYQWQGEBxoFeM3TCrWyLvTXtM\n4OFLKq1SWUf8y4y7v8VpwBwcNs37XdVTkhmThTpahbH0QnON2rKRMdzCFp4iHMSe\nYKdLNuAL4BoW0vU0tNJz+2GAr1WpVTCxoxJ8dmWV+8JsNzvPMzU0X8IVL906Fi4b\nH/i8MZBTrqCNpLzPkSeVNcTWpJ3Z8SGL6sIksJrXtD4kd49R3kola2u97ICuYMLt\nV7cPXZB63Gef2sejbxlakD1XhFLMQZ7JqnTg2hR+j2GbrLSR9fMqCHlnFwT93u0y\nSx65IZZ7yh2HadU3YM2MXTVyPdgVneDHzXAZEm2BMQKBgQDfmFUgVG6dB/dZ9EQU\nQJpk/69h2kZJwfbnujIPygjbCwlFVxIcN287xo0/82Ny3/UqMMpUteWeqEP2tZ3K\nVXVyQqUx2nCoWK3hTWcrzSb0HI/m76bsZXZJ+8RHPEEyIgCiOZ7jn5LzHgrvKsXI\n9i9khqBT2HAXiUww+ETIc7MEdQKBgQDLoPGJJ3hN28Sh+nv8lgHvoFoJMLMRB5cm\nasllQJlVHHJaXicVWhln+tMP+M7kuXCPQP90kD+UunXSRNV6AnZfBV/t5xpph3nw\nLXtugpfIUWxewKGWUcij+kemCYdgCxXOJ15UQIklAJSYOZxfgzUYxyC9U7JXQOhz\nfUWiy7j93QKBgDvETkzcBM04yedjoacANcT1i33OiKdCj6sVXDhYOtHCO3Ireg3M\ny5Dg2/TSLC0SrEfgztSh4oTsWW5i0ZC6EzC9m8adqyt0uNXWiNNufREXaWfDe40I\n+fuArtCTzKGH8T9rw4r4pqER0L5pYoD7PWPTkJuY6S2BZ7pXQpuKQbnZAoGBAJLj\nHzjLwwmO7ZHWqZez8eOUbT5R5enz6sGoqGyko7b0lTzAzDqnysnp8lSEK2Jsrlh4\nD45a+7JiqtkqFEA2BINY0jE/0xqqwnhRpsc55xl2OtFC7Y0Mo8o9oW+RUhkjBfC3\nD2GBSCzr9US10ipH8IZWJjTMakpspQGiLRhZErH1AoGAXt5IY5c8PsEVPw+DO0PF\nBV9NoWJiwX6Bz9hP1oiBVA15FBEjLP0n4vVxrTH4CCjTn/2ALdgpKkUT0fn9+XNg\nsjhL6MvTkQkaCT2RDfb70sSW1eSAD/3xa/a41IZOOslgwKV+BClOABJIZUFqszzq\nRvHxrwOVb7PwPP+hMZMX7iM=\n-----END PRIVATE KEY-----\n",
+  "client_email": "firebase-adminsdk-fbsvc@hosa-treasurer.iam.gserviceaccount.com",
+  "client_id": "106358568149325726308",
+  "auth_uri": "https://accounts.google.com/o/oauth2/auth",
+  "token_uri": "https://oauth2.googleapis.com/token",
+  "auth_provider_x509_cert_url": "https://www.googleapis.com/oauth2/v1/certs",
+  "client_x509_cert_url": "https://www.googleapis.com/robot/v1/metadata/x509/firebase-adminsdk-fbsvc%40hosa-treasurer.iam.gserviceaccount.com",
+  "universe_domain": "googleapis.com"
+}
