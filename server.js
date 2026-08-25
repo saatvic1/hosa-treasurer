@@ -2,22 +2,54 @@ const express = require('express');
 const jwt = require('jsonwebtoken');
 const path = require('path');
 const cors = require('cors');
-const admin = require('firebase-admin');
 
-const serviceAccount = JSON.parse(process.env.FIREBASE_KEY);
-
-admin.initializeApp({
-  credential: admin.credential.cert(serviceAccount),
-  databaseURL: 'https://hosa-treasurer-default-rtdb.firebaseio.com'
-});
-
-const db = admin.database();
 const app = express();
 const SECRET = 'your-secret-key-change-this';
 
 app.use(cors());
 app.use(express.json());
 app.use(express.static(path.join(__dirname, 'frontend/build')));
+
+// ===== DATA =====
+const users = [
+  { id: '1', email: 'mega@admin.com', password: 'megaadmin123', name: 'Mega Admin', role: 'mega-admin' },
+  { id: '2', email: 'admin@hosa.com', password: 'admin123', name: 'Admin', role: 'admin' },
+  { id: '3', email: 'member@hosa.com', password: 'member123', name: 'Member', role: 'member' },
+];
+
+const members = [
+  { id: '1', name: 'John Doe', email: 'john@example.com', phone: '555-1234', grade: '12', notes: '' },
+  { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '555-5678', grade: '11', notes: '' },
+];
+
+const committees = [
+  { id: '1', name: 'Leadership', description: 'Student leaders', chair: '1', schedule: 'Mondays 3pm', defaultPts: 10 },
+];
+
+const committeeMembers = [];
+const weeklyNotes = [];
+const slcPointsTracking = [];
+const slcPointsHistory = [];
+
+const attendance = [];
+const transactions = [];
+const buckets = [
+  { id: '1', name: 'General Fund', balance: 5000, budget: 10000, description: 'General operational fund' },
+];
+const fees = [
+  { id: '1', name: 'Membership Fee', amount: 50, description: 'Annual membership' },
+];
+const memberFees = [];
+const fundraisers = [
+  { id: '1', name: 'Car Wash', goal: 1000, raised: 500, date: '2026-09-15', description: '', status: 'active' },
+];
+const snapCampaigns = [];
+const grants = [];
+const equipment = [];
+const equipmentLogs = [];
+const events = [];
+const emailHistory = [];
+const settings = { orgName: 'HOSA SLC', orgEmail: 'hosa@example.com', attendancePoints: 10, eventAttendancePoints: 5 };
 
 // ===== MIDDLEWARE =====
 const verifyToken = (req, res, next) => {
@@ -32,538 +64,441 @@ const verifyToken = (req, res, next) => {
 };
 
 // ===== AUTH =====
-app.post('/api/auth/login', async (req, res) => {
+app.post('/api/auth/login', (req, res) => {
   const { email, password } = req.body;
-  try {
-    const snapshot = await db.ref('users').once('value');
-    let user = null;
-    snapshot.forEach(child => {
-      if (child.val().email === email && child.val().password === password) {
-        user = { id: child.key, ...child.val() };
-      }
-    });
-    if (!user) return res.status(401).json({ error: 'Invalid credentials' });
-    const token = jwt.sign({ id: user.id, role: user.role }, SECRET);
-    res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
+  const user = users.find(u => u.email === email && u.password === password);
+  if (!user) return res.status(401).json({ error: 'Invalid credentials' });
+  const token = jwt.sign({ id: user.id, role: user.role }, SECRET);
+  res.json({ token, user: { id: user.id, name: user.name, email: user.email, role: user.role } });
 });
 
-app.post('/api/auth/register', async (req, res) => {
+app.post('/api/auth/register', (req, res) => {
   const { email, password, name } = req.body;
-  try {
-    const snapshot = await db.ref('users').once('value');
-    let exists = false;
-    snapshot.forEach(child => {
-      if (child.val().email === email) exists = true;
-    });
-    if (exists) return res.status(400).json({ error: 'Email exists' });
-    
-    const newId = Date.now().toString();
-    await db.ref(`users/${newId}`).set({ id: newId, email, password, name, role: 'member' });
-    const token = jwt.sign({ id: newId, role: 'member' }, SECRET);
-    res.json({ token, user: { id: newId, name, email, role: 'member' } });
-  } catch (err) {
-    res.status(500).json({ error: 'Server error' });
-  }
+  if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email exists' });
+  const newUser = { id: Date.now().toString(), email, password, name, role: 'member' };
+  users.push(newUser);
+  const token = jwt.sign({ id: newUser.id, role: newUser.role }, SECRET);
+  res.json({ token, user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role } });
 });
 
 // ===== MEMBERS =====
-app.get('/api/members', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('members').once('value');
-    const members = [];
-    snapshot.forEach(child => {
-      members.push({ id: child.key, ...child.val() });
-    });
-    res.json(members);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching members' });
-  }
+app.get('/api/members', verifyToken, (req, res) => res.json(members));
+app.post('/api/members', verifyToken, (req, res) => {
+  const newMember = { id: Date.now().toString(), ...req.body };
+  members.push(newMember);
+  res.json(newMember);
 });
-
-app.post('/api/members', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`members/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating member' });
-  }
+app.patch('/api/members/:id', verifyToken, (req, res) => {
+  const member = members.find(m => m.id === req.params.id);
+  if (!member) return res.status(404).json({ error: 'Not found' });
+  Object.assign(member, req.body);
+  res.json(member);
 });
-
-app.patch('/api/members/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`members/${req.params.id}`).update(req.body);
-    res.json({ id: req.params.id, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error updating member' });
-  }
+app.delete('/api/members/:id', verifyToken, (req, res) => {
+  const index = members.findIndex(m => m.id === req.params.id);
+  if (index > -1) members.splice(index, 1);
+  res.json({ success: true });
 });
-
-app.delete('/api/members/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`members/${req.params.id}`).remove();
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error deleting member' });
-  }
+app.post('/api/import-members', verifyToken, (req, res) => {
+  const { csvData } = req.body;
+  const lines = csvData.trim().split('\n');
+  lines.forEach(line => {
+    const [name, email, phone, grade, notes] = line.split('|').map(s => s.trim());
+    if (name && email) {
+      members.push({ id: Date.now().toString(), name, email, phone: phone || '', grade: grade || '', notes: notes || '' });
+    }
+  });
+  res.json({ imported: lines.length });
 });
 
 // ===== COMMITTEES =====
-app.get('/api/committees', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('committees').once('value');
-    const committees = [];
-    snapshot.forEach(child => {
-      committees.push({ id: child.key, ...child.val() });
-    });
-    res.json(committees);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching committees' });
-  }
+app.get('/api/committees', verifyToken, (req, res) => res.json(committees));
+app.post('/api/committees', verifyToken, (req, res) => {
+  const newComm = { id: Date.now().toString(), ...req.body };
+  committees.push(newComm);
+  res.json(newComm);
 });
-
-app.post('/api/committees', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`committees/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating committee' });
-  }
+app.patch('/api/committees/:id', verifyToken, (req, res) => {
+  const comm = committees.find(c => c.id === req.params.id);
+  if (!comm) return res.status(404).json({ error: 'Not found' });
+  Object.assign(comm, req.body);
+  res.json(comm);
 });
-
-app.patch('/api/committees/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`committees/${req.params.id}`).update(req.body);
-    res.json({ id: req.params.id, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error updating committee' });
-  }
-});
-
-app.delete('/api/committees/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`committees/${req.params.id}`).remove();
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error deleting committee' });
-  }
+app.delete('/api/committees/:id', verifyToken, (req, res) => {
+  const index = committees.findIndex(c => c.id === req.params.id);
+  if (index > -1) committees.splice(index, 1);
+  res.json({ success: true });
 });
 
 // ===== COMMITTEE MEMBERS =====
-app.get('/api/committees/:id/members', verifyToken, async (req, res) => {
-  try {
-    const membersSnapshot = await db.ref('members').once('value');
-    const commMembersSnapshot = await db.ref('committeeMembers').once('value');
-    
-    const members = {};
-    membersSnapshot.forEach(child => {
-      members[child.key] = child.val();
-    });
-    
-    const commMembers = [];
-    commMembersSnapshot.forEach(child => {
-      if (child.val().committeeId === req.params.id) {
-        const member = members[child.val().memberId];
-        commMembers.push({
-          ...child.val(),
-          memberName: member?.name || 'Unknown',
-          memberEmail: member?.email || ''
-        });
-      }
-    });
-    res.json(commMembers);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching committee members' });
-  }
+app.get('/api/committees/:id/members', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const commMembers = committeeMembers.filter(m => m.committeeId === id);
+  const withDetails = commMembers.map(m => {
+    const member = members.find(mem => mem.id === m.memberId);
+    return { ...m, memberName: member?.name || 'Unknown', memberEmail: member?.email || '' };
+  });
+  res.json(withDetails);
 });
 
-app.post('/api/committees/:id/members', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`committeeMembers/${newId}`).set({
-      id: newId,
-      committeeId: req.params.id,
-      memberId: req.body.memberId,
-      addedDate: new Date().toISOString()
-    });
-    res.json({ id: newId, committeeId: req.params.id, memberId: req.body.memberId });
-  } catch (err) {
-    res.status(500).json({ error: 'Error adding member' });
-  }
+app.post('/api/committees/:id/members', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const { memberId } = req.body;
+  const newMember = {
+    id: Date.now().toString(),
+    committeeId: id,
+    memberId: memberId,
+    addedDate: new Date().toISOString()
+  };
+  committeeMembers.push(newMember);
+  res.json(newMember);
 });
 
-app.delete('/api/committees/:committeeId/members/:memberId', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('committeeMembers').once('value');
-    snapshot.forEach(child => {
-      if (child.val().committeeId === req.params.committeeId && child.key === req.params.memberId) {
-        db.ref(`committeeMembers/${child.key}`).remove();
-      }
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error removing member' });
-  }
+app.delete('/api/committees/:committeeId/members/:memberId', verifyToken, (req, res) => {
+  const { committeeId, memberId } = req.params;
+  const index = committeeMembers.findIndex(m => m.committeeId === committeeId && m.id === memberId);
+  if (index > -1) committeeMembers.splice(index, 1);
+  res.json({ success: true });
 });
 
 // ===== WEEKLY NOTES =====
-app.get('/api/committees/:id/weekly-notes', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('weeklyNotes').once('value');
-    const notes = [];
-    snapshot.forEach(child => {
-      if (child.val().committeeId === req.params.id) {
-        notes.push({ id: child.key, ...child.val() });
-      }
-    });
-    res.json(notes);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching notes' });
-  }
+app.get('/api/committees/:id/weekly-notes', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const notes = weeklyNotes.filter(n => n.committeeId === id);
+  res.json(notes);
 });
 
-app.post('/api/committees/:id/weekly-notes', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`weeklyNotes/${newId}`).set({
-      id: newId,
-      committeeId: req.params.id,
-      week: req.body.week,
-      content: req.body.content,
-      createdBy: req.user.id,
-      createdDate: new Date().toISOString()
-    });
-    res.json({ id: newId });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating note' });
-  }
+app.post('/api/committees/:id/weekly-notes', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const { week, content } = req.body;
+  const newNote = {
+    id: Date.now().toString(),
+    committeeId: id,
+    week: week,
+    content: content,
+    createdBy: req.user.id,
+    createdDate: new Date().toISOString()
+  };
+  weeklyNotes.push(newNote);
+  res.json(newNote);
 });
 
-app.patch('/api/weekly-notes/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`weeklyNotes/${req.params.id}`).update({ content: req.body.content });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error updating note' });
-  }
+app.patch('/api/weekly-notes/:id', verifyToken, (req, res) => {
+  const note = weeklyNotes.find(n => n.id === req.params.id);
+  if (!note) return res.status(404).json({ error: 'Not found' });
+  note.content = req.body.content || note.content;
+  res.json(note);
 });
 
-app.delete('/api/weekly-notes/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`weeklyNotes/${req.params.id}`).remove();
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error deleting note' });
-  }
+app.delete('/api/weekly-notes/:id', verifyToken, (req, res) => {
+  const index = weeklyNotes.findIndex(n => n.id === req.params.id);
+  if (index > -1) weeklyNotes.splice(index, 1);
+  res.json({ success: true });
 });
 
-// ===== SLC POINTS (Weekly 0-3) =====
-app.post('/api/committees/:id/slc-points', verifyToken, async (req, res) => {
+// ===== SLC POINTS (Weekly 0-3 Committee Participation) =====
+app.get('/api/committees/:id/slc-points', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const points = slcPointsTracking.filter(p => p.committeeId === id);
+  res.json(points);
+});
+
+app.post('/api/committees/:id/slc-points', verifyToken, (req, res) => {
   try {
+    const { id } = req.params;
     const { memberId, week, rating } = req.body;
-    const newId = Date.now().toString();
     
-    await db.ref(`slcPointsTracking/${newId}`).set({
-      id: newId,
-      committeeId: req.params.id,
-      memberId: memberId,
-      week: week,
-      rating: rating,
-      ratedBy: req.user.id,
-      ratedDate: new Date().toISOString()
-    });
+    const existing = slcPointsTracking.find(p => 
+      p.committeeId === id && p.memberId === memberId && p.week === week
+    );
     
-    await db.ref(`slcPointsHistory/${newId}`).set({
-      id: newId,
+    if (existing) {
+      existing.rating = rating;
+    } else {
+      const newRating = {
+        id: Date.now().toString(),
+        committeeId: id,
+        memberId: memberId,
+        week: week,
+        rating: rating,
+        ratedBy: req.user.id,
+        ratedDate: new Date().toISOString()
+      };
+      slcPointsTracking.push(newRating);
+    }
+    
+    const pointEntry = {
+      id: Date.now().toString(),
       memberId: memberId,
       points: parseInt(rating),
       reason: `Week ${week} Committee Participation (${rating}/3)`,
       awardedBy: req.user.id,
       awardedDate: new Date().toISOString()
-    });
+    };
+    slcPointsHistory.push(pointEntry);
     
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Error assigning points' });
+    res.status(500).json({ error: err.message });
   }
 });
 
-// ===== SLC POINTS (General Award) =====
-app.post('/api/slc-points', verifyToken, async (req, res) => {
+// ===== SLC POINTS (General Award - Any Amount) =====
+app.get('/api/slc-points', verifyToken, (req, res) => {
+  res.json(slcPointsHistory);
+});
+
+app.post('/api/slc-points', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin' && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`slcPointsHistory/${newId}`).set({
-      id: newId,
-      memberId: req.body.memberId,
-      points: parseInt(req.body.points),
-      reason: req.body.reason || 'Award',
-      awardedBy: req.user.id,
-      awardedDate: new Date().toISOString()
-    });
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error awarding points' });
-  }
+  const { memberId, points, reason } = req.body;
+  const newEntry = {
+    id: Date.now().toString(),
+    memberId: memberId,
+    points: parseInt(points),
+    reason: reason || 'Award',
+    awardedBy: req.user.id,
+    awardedDate: new Date().toISOString()
+  };
+  
+  slcPointsHistory.push(newEntry);
+  res.json(newEntry);
 });
 
-app.get('/api/slc-points-all', verifyToken, async (req, res) => {
-  try {
-    const historySnapshot = await db.ref('slcPointsHistory').once('value');
-    const membersSnapshot = await db.ref('members').once('value');
+app.get('/api/slc-points-all', verifyToken, (req, res) => {
+  const detailed = slcPointsHistory.map(p => {
+    const member = members.find(m => m.id === p.memberId);
+    const totalPoints = slcPointsHistory
+      .filter(h => h.memberId === p.memberId)
+      .reduce((sum, h) => sum + h.points, 0);
     
-    const members = {};
-    membersSnapshot.forEach(child => {
-      members[child.key] = child.val();
-    });
-    
-    const detailed = [];
-    const totals = {};
-    
-    historySnapshot.forEach(child => {
-      const entry = child.val();
-      if (!totals[entry.memberId]) totals[entry.memberId] = 0;
-      totals[entry.memberId] += entry.points;
-      
-      detailed.push({
-        ...entry,
-        memberName: members[entry.memberId]?.name || 'Unknown',
-        memberRunningTotal: totals[entry.memberId]
-      });
-    });
-    
-    res.json(detailed);
-  } catch (err) {
-    res.status(500).json({ error: 'Error fetching points' });
-  }
+    return {
+      ...p,
+      memberName: member?.name || 'Unknown',
+      memberRunningTotal: totalPoints
+    };
+  });
+  res.json(detailed);
 });
 
-// ===== OTHER ENDPOINTS (Minimal for now) =====
-app.get('/api/attendance', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('attendance').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
+// ===== EMAIL =====
+app.post('/api/email', verifyToken, (req, res) => {
+  const { to, subject, body, type } = req.body;
+  const newEmail = {
+    id: Date.now().toString(),
+    to: Array.isArray(to) ? to : [to],
+    subject,
+    body,
+    type,
+    sentAt: new Date().toISOString(),
+    recipientCount: Array.isArray(to) ? to.length : 1
+  };
+  emailHistory.push(newEmail);
+  res.json({ success: true, emailId: newEmail.id });
 });
 
-app.get('/api/transactions', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('transactions').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
+app.get('/api/email-history', verifyToken, (req, res) => res.json(emailHistory));
+
+// ===== OTHER ENDPOINTS =====
+app.get('/api/attendance', verifyToken, (req, res) => res.json(attendance));
+app.get('/api/transactions', verifyToken, (req, res) => res.json(transactions));
+app.post('/api/transactions', verifyToken, (req, res) => {
+  const newTx = { id: Date.now().toString(), ...req.body };
+  transactions.push(newTx);
+  res.json(newTx);
 });
-
-app.post('/api/transactions', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`transactions/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating transaction' });
-  }
+app.patch('/api/transactions/:id', verifyToken, (req, res) => {
+  const tx = transactions.find(t => t.id === req.params.id);
+  if (!tx) return res.status(404).json({ error: 'Not found' });
+  Object.assign(tx, req.body);
+  res.json(tx);
 });
-
-app.get('/api/buckets', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('buckets').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data || []);
-  } catch {
-    res.json([{ id: '1', name: 'General Fund', balance: 5000, budget: 10000 }]);
-  }
-});
-
-app.post('/api/buckets', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`buckets/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating bucket' });
-  }
-});
-
-app.patch('/api/buckets/:id', verifyToken, async (req, res) => {
-  try {
-    await db.ref(`buckets/${req.params.id}`).update(req.body);
-    res.json({ success: true });
-  } catch (err) {
-    res.status(500).json({ error: 'Error updating bucket' });
-  }
-});
-
-app.get('/api/fee-categories', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('feeCategories').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data || []);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.post('/api/fee-categories', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`feeCategories/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating fee' });
-  }
-});
-
-app.get('/api/member-fees', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('memberFees').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.get('/api/fundraisers', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('fundraisers').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.post('/api/fundraisers', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`fundraisers/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating fundraiser' });
-  }
-});
-
-app.get('/api/snap-campaigns', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('snapCampaigns').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.get('/api/grants', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('grants').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.get('/api/equipment', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('equipment').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.get('/api/equipment-logs', verifyToken, async (req, res) => res.json([]));
-
-app.get('/api/events', verifyToken, async (req, res) => {
-  try {
-    const snapshot = await db.ref('events').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
-});
-
-app.post('/api/events', verifyToken, async (req, res) => {
-  try {
-    const newId = Date.now().toString();
-    await db.ref(`events/${newId}`).set({ id: newId, ...req.body });
-    res.json({ id: newId, ...req.body });
-  } catch (err) {
-    res.status(500).json({ error: 'Error creating event' });
-  }
-});
-
-app.get('/api/email-history', verifyToken, async (req, res) => res.json([]));
-
-app.post('/api/email', verifyToken, async (req, res) => {
+app.delete('/api/transactions/:id', verifyToken, (req, res) => {
+  const index = transactions.findIndex(t => t.id === req.params.id);
+  if (index > -1) transactions.splice(index, 1);
   res.json({ success: true });
 });
 
-app.get('/api/settings', verifyToken, async (req, res) => {
-  res.json({ orgName: 'HOSA SLC', orgEmail: 'hosa@example.com' });
+app.get('/api/buckets', verifyToken, (req, res) => res.json(buckets));
+app.post('/api/buckets', verifyToken, (req, res) => {
+  const newBucket = { id: Date.now().toString(), ...req.body };
+  buckets.push(newBucket);
+  res.json(newBucket);
+});
+app.patch('/api/buckets/:id', verifyToken, (req, res) => {
+  const bucket = buckets.find(b => b.id === req.params.id);
+  if (!bucket) return res.status(404).json({ error: 'Not found' });
+  Object.assign(bucket, req.body);
+  res.json(bucket);
+});
+app.delete('/api/buckets/:id', verifyToken, (req, res) => {
+  const index = buckets.findIndex(b => b.id === req.params.id);
+  if (index > -1) buckets.splice(index, 1);
+  res.json({ success: true });
 });
 
-app.get('/api/users', verifyToken, async (req, res) => {
+app.get('/api/fee-categories', verifyToken, (req, res) => res.json(fees));
+app.post('/api/fee-categories', verifyToken, (req, res) => {
+  const newFee = { id: Date.now().toString(), ...req.body };
+  fees.push(newFee);
+  res.json(newFee);
+});
+app.patch('/api/fee-categories/:id', verifyToken, (req, res) => {
+  const fee = fees.find(f => f.id === req.params.id);
+  if (!fee) return res.status(404).json({ error: 'Not found' });
+  Object.assign(fee, req.body);
+  res.json(fee);
+});
+app.delete('/api/fee-categories/:id', verifyToken, (req, res) => {
+  const index = fees.findIndex(f => f.id === req.params.id);
+  if (index > -1) fees.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/member-fees', verifyToken, (req, res) => res.json(memberFees));
+app.post('/api/member-fees', verifyToken, (req, res) => {
+  const newMF = { id: Date.now().toString(), ...req.body };
+  memberFees.push(newMF);
+  res.json(newMF);
+});
+
+app.get('/api/fundraisers', verifyToken, (req, res) => res.json(fundraisers));
+app.post('/api/fundraisers', verifyToken, (req, res) => {
+  const newFund = { id: Date.now().toString(), ...req.body };
+  fundraisers.push(newFund);
+  res.json(newFund);
+});
+app.patch('/api/fundraisers/:id', verifyToken, (req, res) => {
+  const fund = fundraisers.find(f => f.id === req.params.id);
+  if (!fund) return res.status(404).json({ error: 'Not found' });
+  Object.assign(fund, req.body);
+  res.json(fund);
+});
+app.delete('/api/fundraisers/:id', verifyToken, (req, res) => {
+  const index = fundraisers.findIndex(f => f.id === req.params.id);
+  if (index > -1) fundraisers.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/snap-campaigns', verifyToken, (req, res) => res.json(snapCampaigns));
+app.post('/api/snap-campaigns', verifyToken, (req, res) => {
+  const newSnap = { id: Date.now().toString(), ...req.body };
+  snapCampaigns.push(newSnap);
+  res.json(newSnap);
+});
+app.patch('/api/snap-campaigns/:id', verifyToken, (req, res) => {
+  const snap = snapCampaigns.find(s => s.id === req.params.id);
+  if (!snap) return res.status(404).json({ error: 'Not found' });
+  Object.assign(snap, req.body);
+  res.json(snap);
+});
+app.delete('/api/snap-campaigns/:id', verifyToken, (req, res) => {
+  const index = snapCampaigns.findIndex(s => s.id === req.params.id);
+  if (index > -1) snapCampaigns.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/grants', verifyToken, (req, res) => res.json(grants));
+app.post('/api/grants', verifyToken, (req, res) => {
+  const newGrant = { id: Date.now().toString(), ...req.body };
+  grants.push(newGrant);
+  res.json(newGrant);
+});
+app.patch('/api/grants/:id', verifyToken, (req, res) => {
+  const grant = grants.find(g => g.id === req.params.id);
+  if (!grant) return res.status(404).json({ error: 'Not found' });
+  Object.assign(grant, req.body);
+  res.json(grant);
+});
+app.delete('/api/grants/:id', verifyToken, (req, res) => {
+  const index = grants.findIndex(g => g.id === req.params.id);
+  if (index > -1) grants.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/equipment', verifyToken, (req, res) => res.json(equipment));
+app.post('/api/equipment', verifyToken, (req, res) => {
+  const newEquip = { id: Date.now().toString(), ...req.body };
+  equipment.push(newEquip);
+  res.json(newEquip);
+});
+app.patch('/api/equipment/:id', verifyToken, (req, res) => {
+  const equip = equipment.find(e => e.id === req.params.id);
+  if (!equip) return res.status(404).json({ error: 'Not found' });
+  Object.assign(equip, req.body);
+  res.json(equip);
+});
+app.delete('/api/equipment/:id', verifyToken, (req, res) => {
+  const index = equipment.findIndex(e => e.id === req.params.id);
+  if (index > -1) equipment.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/equipment-logs', verifyToken, (req, res) => res.json(equipmentLogs));
+app.post('/api/equipment-logs', verifyToken, (req, res) => {
+  const newLog = { id: Date.now().toString(), ...req.body };
+  equipmentLogs.push(newLog);
+  res.json(newLog);
+});
+
+app.get('/api/events', verifyToken, (req, res) => res.json(events));
+app.post('/api/events', verifyToken, (req, res) => {
+  const newEvent = { id: Date.now().toString(), ...req.body };
+  events.push(newEvent);
+  res.json(newEvent);
+});
+app.patch('/api/events/:id', verifyToken, (req, res) => {
+  const event = events.find(e => e.id === req.params.id);
+  if (!event) return res.status(404).json({ error: 'Not found' });
+  Object.assign(event, req.body);
+  res.json(event);
+});
+app.delete('/api/events/:id', verifyToken, (req, res) => {
+  const index = events.findIndex(e => e.id === req.params.id);
+  if (index > -1) events.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/settings', verifyToken, (req, res) => res.json(settings));
+app.post('/api/settings', verifyToken, (req, res) => {
+  Object.assign(settings, req.body);
+  res.json(settings);
+});
+
+app.get('/api/users', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
-  try {
-    const snapshot = await db.ref('users').once('value');
-    const data = [];
-    snapshot.forEach(child => {
-      data.push({ id: child.key, ...child.val() });
-    });
-    res.json(data);
-  } catch {
-    res.json([]);
-  }
+  res.json(users);
 });
 
-app.get('/api/member-dashboard', verifyToken, async (req, res) => {
+app.post('/api/users', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  const newUser = { id: Date.now().toString(), ...req.body };
+  users.push(newUser);
+  res.json(newUser);
+});
+
+app.patch('/api/users/:id', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  const user = users.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  Object.assign(user, req.body);
+  res.json(user);
+});
+
+app.delete('/api/users/:id', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  const index = users.findIndex(u => u.id === req.params.id);
+  if (index > -1) users.splice(index, 1);
+  res.json({ success: true });
+});
+
+app.get('/api/member-dashboard', verifyToken, (req, res) => {
+  const user = users.find(u => u.id === req.user.id);
+  const member = members.find(m => m.email === user?.email);
   res.json({
-    member: {},
+    member: member || {},
     outstandingFees: 0,
     equipmentCount: 0,
     eventsCount: 0,
