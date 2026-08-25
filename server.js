@@ -235,8 +235,42 @@ app.get('/api/slc-points', verifyToken, (req, res) => {
   res.json(slcPointsHistory);
 });
 
-app.post('/api/slc-points', verifyToken, (req, res) => {
-  if (req.user.role !== 'mega-admin' && req.user.role !== 'admin') {
+app.post('/api/committees/:id/slc-points', verifyToken, (req, res) => {
+  const { id } = req.params;
+  const { memberId, week, rating } = req.body;
+  
+  const existing = slcPointsTracking.find(p => 
+    p.committeeId === id && p.memberId === memberId && p.week === week
+  );
+  
+  if (existing) {
+    existing.rating = rating;
+  } else {
+    const newRating = {
+      id: Date.now().toString(),
+      committeeId: id,
+      memberId: memberId,
+      week: week,
+      rating: rating,
+      ratedBy: req.user.id,
+      ratedDate: new Date().toISOString()
+    };
+    slcPointsTracking.push(newRating);
+  }
+  
+  // AUTOMATICALLY ADD POINTS TO SLC HISTORY
+  const pointEntry = {
+    id: Date.now().toString(),
+    memberId: memberId,
+    points: parseInt(rating),
+    reason: `Week ${week} Committee Participation (${rating}/3)`,
+    awardedBy: req.user.id,
+    awardedDate: new Date().toISOString()
+  };
+  slcPointsHistory.push(pointEntry);
+  
+  res.json({ success: true });
+});  if (req.user.role !== 'mega-admin' && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Forbidden' });
   }
   
