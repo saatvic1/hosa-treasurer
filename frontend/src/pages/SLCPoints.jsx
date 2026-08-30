@@ -18,12 +18,8 @@ export default function SLCPoints({ user, data, reload }) {
   const loadData = async () => {
     try {
       setMembers(data.members || []);
-      
       const points = {};
-      (data.members || []).forEach(m => {
-        points[m.id] = 0;
-      });
-      
+      (data.members || []).forEach(m => { points[m.id] = 0; });
       try {
         const res = await api.get('/slc-points-all');
         if (res.data && Array.isArray(res.data)) {
@@ -34,9 +30,8 @@ export default function SLCPoints({ user, data, reload }) {
           });
         }
       } catch (err) {
-        console.log('Could not load all points (admin only)');
+        console.log('Could not load all points');
       }
-      
       setMemberPoints(points);
     } catch (err) {
       console.error('Error loading data:', err);
@@ -45,28 +40,16 @@ export default function SLCPoints({ user, data, reload }) {
 
   const handleAddPoints = async () => {
     if (!selectedMember || !pointsToAdd) return alert('Select member and enter points');
-    
     const pts = parseInt(pointsToAdd);
     if (isNaN(pts) || pts < 0) return alert('Enter valid points');
-
     setLoading(true);
     try {
-      await api.post('/slc-points', {
-        memberId: selectedMember.id,
-        points: pts,
-        reason: reason || 'Manual award'
-      });
-      
-      setMemberPoints({
-        ...memberPoints,
-        [selectedMember.id]: (memberPoints[selectedMember.id] || 0) + pts
-      });
-      
+      await api.post('/slc-points', { memberId: selectedMember.id, points: pts, reason: reason || 'Manual award' });
+      setMemberPoints({ ...memberPoints, [selectedMember.id]: (memberPoints[selectedMember.id] || 0) + pts });
       setShowModal(false);
       setSelectedMember(null);
       setPointsToAdd('');
       setReason('');
-      
       if (reload) reload();
     } catch (err) {
       alert('Error adding points');
@@ -81,60 +64,44 @@ export default function SLCPoints({ user, data, reload }) {
 
   const totalPoints = Object.values(memberPoints).reduce((sum, p) => sum + p, 0);
 
+  const generatePDF = () => {
+    let pdf = '=== SLC POINTS EXPORT ===\n\n';
+    filteredMembers.forEach(m => {
+      pdf += `${m.name}: ${memberPoints[m.id] || 0} points\n`;
+    });
+    pdf += `\nTotal Points: ${totalPoints}\n`;
+    const element = document.createElement('a');
+    element.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(pdf);
+    element.download = 'slc-points-export.txt';
+    element.click();
+  };
+
   if (user?.role !== 'mega-admin' && user?.role !== 'admin') {
-    return (
-      <div>
-        <h2 className="card-title-main">SLC Points</h2>
-        <div className="card">
-          <p style={{ color: '#8b8580' }}>SLC Points management is available to admins only</p>
-        </div>
-      </div>
-    );
+    return <div><h2 className="card-title-main">SLC Points</h2><div className="card"><p style={{ color: '#8b8580' }}>SLC Points management is available to admins only</p></div></div>;
   }
 
   return (
     <div>
       <h2 className="card-title-main">SLC Points Management</h2>
-
-      <div className="metrics-grid">
-        <div className="metric-card">
-          <div className="metric-label">Total Points Awarded</div>
-          <div className="metric-value" style={{ color: '#d4a574' }}>{totalPoints}</div>
-        </div>
-        <div className="metric-card">
-          <div className="metric-label">Members Tracked</div>
-          <div className="metric-value">{members.length}</div>
-        </div>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+        <button className="btn btn-primary" onClick={() => setShowModal(true)}>⭐ Award Points to Member</button>
+        <button className="btn btn-secondary" onClick={generatePDF}>📄 Export PDF</button>
       </div>
-
-      <button className="btn btn-primary" onClick={() => setShowModal(true)} style={{ marginBottom: '20px' }}>
-        ⭐ Award Points to Member
-      </button>
-
+      <div className="metrics-grid">
+        <div className="metric-card"><div className="metric-label">Total Points Awarded</div><div className="metric-value" style={{ color: '#d4a574' }}>{totalPoints}</div></div>
+        <div className="metric-card"><div className="metric-label">Members Tracked</div><div className="metric-value">{members.length}</div></div>
+      </div>
       <div className="card">
         <div className="card-title">Search Members</div>
-        <input
-          type="text"
-          placeholder="Search by name or email..."
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          className="form-input"
-        />
+        <input type="text" placeholder="Search by name or email..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} className="form-input" />
       </div>
-
       <div className="card" style={{ marginTop: '20px' }}>
         <div className="card-title">All Members ({filteredMembers.length})</div>
         {filteredMembers.length > 0 ? (
           <div className="table-wrap">
             <table>
               <thead>
-                <tr>
-                  <th>Name</th>
-                  <th>Email</th>
-                  <th>Grade</th>
-                  <th>Total SLC Points</th>
-                  <th>Action</th>
-                </tr>
+                <tr><th>Name</th><th>Email</th><th>Grade</th><th>Total SLC Points</th><th>Action</th></tr>
               </thead>
               <tbody>
                 {filteredMembers.map(m => (
@@ -142,29 +109,8 @@ export default function SLCPoints({ user, data, reload }) {
                     <td><strong>{m.name}</strong></td>
                     <td>{m.email}</td>
                     <td>{m.grade || '-'}</td>
-                    <td>
-                      <span style={{
-                        padding: '6px 12px',
-                        borderRadius: '6px',
-                        background: '#e8f4f0',
-                        color: '#2d5a3d',
-                        fontWeight: 'bold',
-                        fontSize: '14px'
-                      }}>
-                        {memberPoints[m.id] || 0} pts
-                      </span>
-                    </td>
-                    <td>
-                      <button
-                        className="btn btn-primary btn-small"
-                        onClick={() => {
-                          setSelectedMember(m);
-                          setShowModal(true);
-                        }}
-                      >
-                        ⭐ Award
-                      </button>
-                    </td>
+                    <td><span style={{ padding: '6px 12px', borderRadius: '6px', background: '#e8f4f0', color: '#2d5a3d', fontWeight: 'bold', fontSize: '14px' }}>{memberPoints[m.id] || 0} pts</span></td>
+                    <td><button className="btn btn-primary btn-small" onClick={() => { setSelectedMember(m); setShowModal(true); }}>⭐ Award</button></td>
                   </tr>
                 ))}
               </tbody>
@@ -174,81 +120,32 @@ export default function SLCPoints({ user, data, reload }) {
           <p style={{ color: '#8b8580' }}>No members found</p>
         )}
       </div>
-
       {showModal && (
         <div className="modal-overlay open">
           <div className="modal">
             <h2 className="modal-title">Award SLC Points</h2>
-            
-            {selectedMember && (
-              <p style={{ fontSize: '14px', color: '#8b8580', marginBottom: '20px' }}>
-                Member: <strong>{selectedMember.name}</strong> (Currently: <strong>{memberPoints[selectedMember.id] || 0} pts</strong>)
-              </p>
-            )}
-
+            {selectedMember && (<p style={{ fontSize: '14px', color: '#8b8580', marginBottom: '20px' }}>Member: <strong>{selectedMember.name}</strong> (Currently: <strong>{memberPoints[selectedMember.id] || 0} pts</strong>)</p>)}
             {!selectedMember && (
               <div className="form-group">
                 <label className="form-label">Select Member *</label>
-                <select 
-                  className="form-input" 
-                  onChange={(e) => {
-                    const member = members.find(m => m.id === e.target.value);
-                    setSelectedMember(member);
-                  }}
-                  defaultValue=""
-                >
-                  <option value="">Choose member...</option>
-                  {members.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                <select className="form-input" onChange={(e) => { const member = members.find(m => m.id === e.target.value); setSelectedMember(member); }} defaultValue=""><option value="">Choose member...</option>{members.map(m => (<option key={m.id} value={m.id}>{m.name}</option>))}</select>
               </div>
             )}
-
             {selectedMember && (
               <>
                 <div className="form-group">
                   <label className="form-label">Points to Award *</label>
-                  <input 
-                    className="form-input" 
-                    type="number" 
-                    value={pointsToAdd} 
-                    onChange={(e) => setPointsToAdd(e.target.value)}
-                    placeholder="Enter points (any number)"
-                    min="0"
-                  />
+                  <input className="form-input" type="number" value={pointsToAdd} onChange={(e) => setPointsToAdd(e.target.value)} placeholder="Enter points" min="0" />
                 </div>
-
                 <div className="form-group">
                   <label className="form-label">Reason (Optional)</label>
-                  <input 
-                    className="form-input" 
-                    type="text" 
-                    value={reason} 
-                    onChange={(e) => setReason(e.target.value)}
-                    placeholder="e.g., Attendance, Leadership, Event participation"
-                  />
+                  <input className="form-input" type="text" value={reason} onChange={(e) => setReason(e.target.value)} placeholder="e.g., Attendance, Leadership" />
                 </div>
               </>
             )}
-
             <div className="modal-footer">
-              <button 
-                className="btn btn-secondary" 
-                onClick={() => {
-                  setShowModal(false);
-                  setSelectedMember(null);
-                  setPointsToAdd('');
-                  setReason('');
-                }}
-              >
-                Cancel
-              </button>
-              {selectedMember && (
-                <button className="btn btn-primary" onClick={handleAddPoints} disabled={loading}>
-                  {loading ? 'Awarding...' : 'Award Points'}
-                </button>
-              )}
+              <button className="btn btn-secondary" onClick={() => { setShowModal(false); setSelectedMember(null); setPointsToAdd(''); setReason(''); }}>Cancel</button>
+              {selectedMember && (<button className="btn btn-primary" onClick={handleAddPoints} disabled={loading}>{loading ? 'Awarding...' : 'Award Points'}</button>)}
             </div>
           </div>
         </div>
