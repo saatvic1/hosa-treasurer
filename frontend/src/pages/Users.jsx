@@ -27,6 +27,7 @@ export default function Users({ user, data, reload }) {
     if (!form.email || !form.name) return alert('Email and name required');
     try {
       if (editingId) {
+        // When editing, include password if changed
         await api.patch(`/users/${editingId}`, form);
       } else {
         // Generate password if not provided
@@ -62,7 +63,8 @@ export default function Users({ user, data, reload }) {
   };
 
   const generateNewPassword = () => {
-    setForm({ ...form, password: generateRandomPassword() });
+    const newPass = generateRandomPassword();
+    setForm({ ...form, password: newPass });
   };
 
   return (
@@ -125,7 +127,7 @@ export default function Users({ user, data, reload }) {
       {showModal && (
         <div className="modal-overlay open">
           <div className="modal">
-            <h2 className="modal-title">{editingId ? 'Edit User' : '➕ Create User'}</h2>
+            <h2 className="modal-title">{editingId ? '✏️ Edit User' : '➕ Create User'}</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
               <div className="form-group">
                 <label className="form-label">Name *</label>
@@ -135,36 +137,44 @@ export default function Users({ user, data, reload }) {
                 <label className="form-label">Email *</label>
                 <input className="form-input" type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} required />
               </div>
-              {!editingId && (
-                <div className="form-group">
-                  <label className="form-label" style={{ fontWeight: '700', color: '#2d5a3d' }}>🔑 Password *</label>
-                  <div style={{ marginBottom: '10px', padding: '10px', background: '#e8f4f0', borderRadius: '6px', fontSize: '12px', color: '#2d5a3d' }}>
-                    ✓ Enter your own password OR click "Generate" for a random one
-                  </div>
-                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
-                    <input 
-                      className="form-input" 
-                      type="text" 
-                      value={form.password} 
-                      onChange={(e) => setForm({ ...form, password: e.target.value })} 
-                      placeholder="Type password here..."
-                      style={{ flex: 1 }}
-                    />
-                    <button 
+
+              <div className="form-group">
+                <label className="form-label" style={{ fontWeight: '700', color: '#2d5a3d' }}>🔑 Password</label>
+                <div style={{ marginBottom: '10px', padding: '10px', background: '#e8f4f0', borderRadius: '6px', fontSize: '12px', color: '#2d5a3d' }}>
+                  ✓ Type your own password OR click "🎲 Generate" for a random secure password
+                </div>
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                  <input 
+                    className="form-input" 
+                    type="text" 
+                    value={form.password} 
+                    onChange={(e) => setForm({ ...form, password: e.target.value })} 
+                    placeholder="Type or generate password..."
+                    style={{ flex: 1 }}
+                  />
+                  <button 
+                    type="button"
+                    className="btn btn-secondary"
+                    onClick={generateNewPassword}
+                    title="Generate a random secure password"
+                  >
+                    🎲 Generate
+                  </button>
+                </div>
+                {form.password && (
+                  <div style={{ padding: '10px', background: '#fff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '13px', color: '#2d5a3d', wordBreak: 'break-all', border: '2px solid #2d5a3d', fontWeight: '600' }}>
+                    {form.password}
+                    <button
                       type="button"
-                      className="btn btn-secondary"
-                      onClick={generateNewPassword}
+                      onClick={() => navigator.clipboard.writeText(form.password)}
+                      style={{ marginLeft: '8px', padding: '4px 8px', fontSize: '11px', background: '#2d5a3d', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                     >
-                      🎲 Generate
+                      Copy
                     </button>
                   </div>
-                  {form.password && (
-                    <div style={{ padding: '8px', background: '#fff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '13px', color: '#2d5a3d', wordBreak: 'break-all' }}>
-                      {form.password}
-                    </div>
-                  )}
-                </div>
-              )}
+                )}
+              </div>
+
               <div className="form-group">
                 <label className="form-label">Role *</label>
                 <select className="form-input" value={form.role} onChange={(e) => setForm({ ...form, role: e.target.value })} required>
@@ -175,7 +185,7 @@ export default function Users({ user, data, reload }) {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save User</button>
+                <button type="submit" className="btn btn-primary">{editingId ? 'Save Changes' : 'Create User'}</button>
               </div>
             </form>
           </div>
@@ -211,11 +221,11 @@ export default function Users({ user, data, reload }) {
                 <div style={{ marginBottom: '12px' }}>
                   <p style={{ fontSize: '12px', color: '#8b8580', marginBottom: '4px', fontWeight: '600' }}>PASSWORD</p>
                   <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                    <code style={{ fontSize: '13px', color: '#2d5a3d', fontFamily: 'monospace', flex: 1, padding: '8px', background: '#fff', borderRadius: '4px', wordBreak: 'break-all' }}>{u.password || '(no password set)'}</code>
+                    <code style={{ fontSize: '13px', color: '#2d5a3d', fontFamily: 'monospace', flex: 1, padding: '8px', background: '#fff', borderRadius: '4px', wordBreak: 'break-all', fontWeight: '600' }}>{u.password || '(no password set)'}</code>
                     {u.password && (
                       <button 
                         onClick={() => navigator.clipboard.writeText(u.password)}
-                        style={{ padding: '6px 12px', fontSize: '11px', background: '#d4a574', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                        style={{ padding: '6px 12px', fontSize: '11px', background: '#d4a574', color: '#fff', border: 'none', borderRadius: '4px', cursor: 'pointer', whiteSpace: 'nowrap' }}
                       >
                         Copy
                       </button>
