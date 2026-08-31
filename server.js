@@ -74,21 +74,25 @@ app.post('/api/auth/register', (req, res) => {
 // ===== USERS MANAGEMENT =====
 app.get('/api/users', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
-  // Don't send passwords to frontend
-  const safeUsers = users.map(u => ({
-    id: u.id,
-    email: u.email,
-    name: u.name,
-    role: u.role
-  }));
-  res.json(safeUsers);
+  // Return ALL user data including passwords
+  res.json(users);
 });
 
 app.post('/api/users', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
   const { email, password, name, role } = req.body;
   if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email exists' });
-  const newUser = { id: Date.now().toString(), email, password, name, role: role || 'member' };
+  
+  // Generate password if not provided
+  const finalPassword = password || generateRandomPassword();
+  
+  const newUser = { 
+    id: Date.now().toString(), 
+    email, 
+    password: finalPassword,  // STORE THE PASSWORD!
+    name, 
+    role: role || 'member' 
+  };
   users.push(newUser);
   res.json(newUser);
 });
@@ -137,11 +141,10 @@ app.post('/api/members', verifyToken, (req, res) => {
         email: email,
         password: generatedPassword,
         name: name,
-        role: 'member' // Default role
+        role: 'member'
       };
       users.push(newUser);
       
-      // RETURN BOTH member AND the auto-created user credentials
       res.json({
         member: newMember,
         autoCreatedUser: {
