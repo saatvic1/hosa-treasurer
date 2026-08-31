@@ -61,6 +61,10 @@ export default function Users({ user, data, reload }) {
     return password;
   };
 
+  const generateNewPassword = () => {
+    setForm({ ...form, password: generateRandomPassword() });
+  };
+
   return (
     <div>
       <h2 className="card-title-main">User Accounts</h2>
@@ -121,7 +125,7 @@ export default function Users({ user, data, reload }) {
       {showModal && (
         <div className="modal-overlay open">
           <div className="modal">
-            <h2 className="modal-title">{editingId ? 'Edit User' : 'Create User'}</h2>
+            <h2 className="modal-title">{editingId ? 'Edit User' : '➕ Create User'}</h2>
             <form onSubmit={(e) => { e.preventDefault(); handleSave(); }}>
               <div className="form-group">
                 <label className="form-label">Name *</label>
@@ -133,8 +137,32 @@ export default function Users({ user, data, reload }) {
               </div>
               {!editingId && (
                 <div className="form-group">
-                  <label className="form-label">Password (leave blank for auto-generated)</label>
-                  <input className="form-input" type="text" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} placeholder="Auto-generate" />
+                  <label className="form-label" style={{ fontWeight: '700', color: '#2d5a3d' }}>🔑 Password *</label>
+                  <div style={{ marginBottom: '10px', padding: '10px', background: '#e8f4f0', borderRadius: '6px', fontSize: '12px', color: '#2d5a3d' }}>
+                    ✓ Enter your own password OR click "Generate" for a random one
+                  </div>
+                  <div style={{ display: 'flex', gap: '8px', marginBottom: '10px' }}>
+                    <input 
+                      className="form-input" 
+                      type="text" 
+                      value={form.password} 
+                      onChange={(e) => setForm({ ...form, password: e.target.value })} 
+                      placeholder="Type password here..."
+                      style={{ flex: 1 }}
+                    />
+                    <button 
+                      type="button"
+                      className="btn btn-secondary"
+                      onClick={generateNewPassword}
+                    >
+                      🎲 Generate
+                    </button>
+                  </div>
+                  {form.password && (
+                    <div style={{ padding: '8px', background: '#fff', borderRadius: '4px', fontFamily: 'monospace', fontSize: '13px', color: '#2d5a3d', wordBreak: 'break-all' }}>
+                      {form.password}
+                    </div>
+                  )}
                 </div>
               )}
               <div className="form-group">
@@ -147,7 +175,7 @@ export default function Users({ user, data, reload }) {
               </div>
               <div className="modal-footer">
                 <button type="button" className="btn btn-secondary" onClick={() => setShowModal(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary">Save</button>
+                <button type="submit" className="btn btn-primary">Save User</button>
               </div>
             </form>
           </div>
