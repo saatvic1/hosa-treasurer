@@ -14,29 +14,35 @@ export default function Fees({ user, data, reload }) {
 
   useEffect(() => {
     loadData();
-    setMembers(data.members || []);
   }, [data]);
+
+  useEffect(() => {
+    setMembers(data.members || []);
+  }, [data.members]);
 
   const loadData = async () => {
     try {
       const res = await api.get('/fee-categories');
       setFees(res.data || []);
-      const res2 = await api.get('/member-fees');
-      const mfs = res2.data || [];
       
-      // Enrich with member and fee names
-      const enriched = mfs.map(mf => {
+      const res2 = await api.get('/member-fees');
+      const rawMFs = res2.data || [];
+      
+      // Enrich with member and fee details
+      const enriched = rawMFs.map(mf => {
         const member = members.find(m => m.id === mf.memberId);
-        const fee = fees.find(f => f.id === mf.feeId);
+        const fee = (res.data || []).find(f => f.id === mf.feeId);
         return {
           ...mf,
-          memberName: member?.name || 'Unknown',
-          feeName: fee?.name || 'Unknown'
+          memberName: member?.name || 'Unknown Member',
+          memberEmail: member?.email || '',
+          feeName: fee?.name || mf.feeName || 'Unknown Fee'
         };
       });
+      
       setMemberFees(enriched);
     } catch (err) {
-      console.error('Error loading fees');
+      console.error('Error loading fees:', err);
     }
   };
 
@@ -232,7 +238,8 @@ export default function Fees({ user, data, reload }) {
           <table>
             <thead>
               <tr>
-                <th>Member</th>
+                <th>Member Name</th>
+                <th>Email</th>
                 <th>Fee</th>
                 <th>Amount</th>
                 <th>Due Date</th>
@@ -242,38 +249,37 @@ export default function Fees({ user, data, reload }) {
             </thead>
             <tbody>
               {memberFees.length > 0 ? (
-                memberFees.map(mf => {
-                  return (
-                    <tr key={mf.id}>
-                      <td><strong>{mf.memberName}</strong></td>
-                      <td>{mf.feeName}</td>
-                      <td>${mf.amount}</td>
-                      <td>{mf.dueDate ? new Date(mf.dueDate).toLocaleDateString() : '-'}</td>
-                      <td>
-                        <span style={{
-                          padding: '4px 8px',
-                          borderRadius: '4px',
-                          background: mf.paid ? '#e8f4f0' : '#f5e3de',
-                          color: mf.paid ? '#2d5a3d' : '#d4a574',
-                          fontSize: '12px',
-                          fontWeight: 'bold'
-                        }}>
-                          {mf.paid ? '✅ PAID' : '⏳ UNPAID'}
-                        </span>
-                      </td>
-                      <td>
-                        {!mf.paid && (
-                          <>
-                            <button className="btn btn-primary btn-small" onClick={() => handleMarkPaid(mf.id)}>Mark Paid</button>
-                            <button className="btn btn-warning btn-small" onClick={() => handleSendInvoice(mf.memberId, members.find(m => m.id === mf.memberId)?.email)}>📧 Invoice</button>
-                          </>
-                        )}
-                      </td>
-                    </tr>
-                  );
-                })
+                memberFees.map(mf => (
+                  <tr key={mf.id}>
+                    <td><strong>{mf.memberName}</strong></td>
+                    <td>{mf.memberEmail}</td>
+                    <td>{mf.feeName}</td>
+                    <td>${mf.amount}</td>
+                    <td>{mf.dueDate ? new Date(mf.dueDate).toLocaleDateString() : '-'}</td>
+                    <td>
+                      <span style={{
+                        padding: '4px 8px',
+                        borderRadius: '4px',
+                        background: mf.paid ? '#e8f4f0' : '#f5e3de',
+                        color: mf.paid ? '#2d5a3d' : '#d4a574',
+                        fontSize: '12px',
+                        fontWeight: 'bold'
+                      }}>
+                        {mf.paid ? '✅ PAID' : '⏳ UNPAID'}
+                      </span>
+                    </td>
+                    <td>
+                      {!mf.paid && (
+                        <>
+                          <button className="btn btn-primary btn-small" onClick={() => handleMarkPaid(mf.id)}>Mark Paid</button>
+                          <button className="btn btn-warning btn-small" onClick={() => handleSendInvoice(mf.memberId, mf.memberEmail)}>📧 Invoice</button>
+                        </>
+                      )}
+                    </td>
+                  </tr>
+                ))
               ) : (
-                <tr><td colSpan="6" style={{ textAlign: 'center', color: '#8b8580' }}>No member fees</td></tr>
+                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#8b8580' }}>No member fees</td></tr>
               )}
             </tbody>
           </table>

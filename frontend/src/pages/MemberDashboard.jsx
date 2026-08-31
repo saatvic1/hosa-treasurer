@@ -7,6 +7,7 @@ export default function MemberDashboard({ user, data }) {
   const [outstandingFees, setOutstandingFees] = useState([]);
   const [slcPoints, setSlcPoints] = useState(0);
   const [loading, setLoading] = useState(true);
+  const [fees, setFees] = useState([]);
 
   useEffect(() => {
     loadMemberData();
@@ -32,14 +33,32 @@ export default function MemberDashboard({ user, data }) {
       const memberCommittees = allCommittees.filter(c => currentMember.committees?.includes(c.id));
       setCommittees(memberCommittees);
       
+      // Get all fees
+      try {
+        const feesRes = await api.get('/fee-categories');
+        setFees(feesRes.data || []);
+      } catch (err) {
+        console.log('Could not load fee categories');
+      }
+      
       // Get their outstanding fees
       try {
         const feesRes = await api.get('/member-fees');
-        const allFees = feesRes.data || [];
-        const memberOutstandingFees = allFees.filter(
+        const allMemberFees = feesRes.data || [];
+        const memberOutstandingFees = allMemberFees.filter(
           f => f.memberId === currentMember.id && !f.paid
         );
-        setOutstandingFees(memberOutstandingFees);
+        
+        // Enrich with fee names
+        const enriched = memberOutstandingFees.map(f => {
+          const feeInfo = (feesRes.data || []).find(fee => fee.id === f.feeId);
+          return {
+            ...f,
+            feeName: f.feeName || feeInfo?.name || 'Unknown Fee'
+          };
+        });
+        
+        setOutstandingFees(enriched);
       } catch (err) {
         console.log('Could not load fees');
       }
@@ -177,7 +196,7 @@ export default function MemberDashboard({ user, data }) {
               <tbody>
                 {outstandingFees.map(f => (
                   <tr key={f.id}>
-                    <td>{f.feeName || 'Fee'}</td>
+                    <td><strong>{f.feeName}</strong></td>
                     <td><strong>${f.amount}</strong></td>
                     <td>{f.dueDate ? new Date(f.dueDate).toLocaleDateString() : '-'}</td>
                     <td>
