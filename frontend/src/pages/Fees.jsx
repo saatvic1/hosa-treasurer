@@ -56,18 +56,19 @@ export default function Fees({ user, data, reload }) {
   };
 
   const handleApplyFees = async () => {
-    if (!selectedFee || !applyFilter) return alert('Select fee and filter');
+    if (!selectedFee || !applyFilter) return alert('Select fee and member type');
     
     let targetMembers = [];
-    if (applyFilter === 'cte') {
-      targetMembers = members.filter(m => m.ctePathway);
+    
+    if (applyFilter === 'affiliated') {
+      targetMembers = members.filter(m => m.ctePathway === true);
     } else if (applyFilter === 'slc') {
       targetMembers = members.filter(m => m.roles?.includes('SLC Participant'));
     } else if (applyFilter === 'flc') {
       targetMembers = members.filter(m => m.roles?.includes('FLC Participant'));
     }
 
-    if (targetMembers.length === 0) return alert('No members match this filter');
+    if (targetMembers.length === 0) return alert(`No members found with selected criteria`);
     if (!window.confirm(`Apply fee to ${targetMembers.length} members?`)) return;
 
     try {
@@ -87,7 +88,7 @@ export default function Fees({ user, data, reload }) {
       setSelectedFee('');
       alert(`Fee applied to ${targetMembers.length} members!`);
     } catch (err) {
-      alert('Error applying fees');
+      alert('Error applying fees: ' + err.message);
     }
   };
 
@@ -141,6 +142,9 @@ export default function Fees({ user, data, reload }) {
   };
 
   const unpaidTotal = memberFees.filter(mf => !mf.paid).reduce((sum, mf) => sum + (mf.amount || 0), 0);
+  const affiliatedCount = members.filter(m => m.ctePathway).length;
+  const slcCount = members.filter(m => m.roles?.includes('SLC Participant')).length;
+  const flcCount = members.filter(m => m.roles?.includes('FLC Participant')).length;
 
   return (
     <div>
@@ -151,7 +155,7 @@ export default function Fees({ user, data, reload }) {
           ➕ Add Fee Category
         </button>
         <button className="btn btn-primary" onClick={() => setShowApplyModal(true)}>
-          💰 Apply Fees to Group
+          💰 Apply Fees
         </button>
         <button className="btn btn-secondary" onClick={generatePDF}>
           📄 Export PDF
@@ -164,8 +168,16 @@ export default function Fees({ user, data, reload }) {
           <div className="metric-value" style={{ color: '#d4a574' }}>${unpaidTotal.toFixed(2)}</div>
         </div>
         <div className="metric-card">
-          <div className="metric-label">Total Members with Fees</div>
-          <div className="metric-value">{new Set(memberFees.map(mf => mf.memberId)).size}</div>
+          <div className="metric-label">Affiliated Members</div>
+          <div className="metric-value">{affiliatedCount}</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">SLC Participants</div>
+          <div className="metric-value">{slcCount}</div>
+        </div>
+        <div className="metric-card">
+          <div className="metric-label">FLC Participants</div>
+          <div className="metric-value">{flcCount}</div>
         </div>
       </div>
 
@@ -287,14 +299,14 @@ export default function Fees({ user, data, reload }) {
       {showApplyModal && (
         <div className="modal-overlay open">
           <div className="modal">
-            <h2 className="modal-title">Apply Fees to Group</h2>
+            <h2 className="modal-title">Apply Fees to Members</h2>
             <div className="form-group">
-              <label className="form-label">Select Filter *</label>
+              <label className="form-label">Select Member Group *</label>
               <select className="form-input" value={applyFilter} onChange={(e) => setApplyFilter(e.target.value)}>
                 <option value="">Choose...</option>
-                <option value="cte">CTE Pathway Members</option>
-                <option value="slc">SLC Participants</option>
-                <option value="flc">FLC Participants</option>
+                <option value="affiliated">CTE Pathway (Affiliated) - {affiliatedCount} members</option>
+                <option value="slc">SLC Participants - {slcCount} members</option>
+                <option value="flc">FLC Participants - {flcCount} members</option>
               </select>
             </div>
             <div className="form-group">

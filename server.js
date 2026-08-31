@@ -17,39 +17,19 @@ const users = [
   { id: '3', email: 'member@hosa.com', password: 'member123', name: 'Member', role: 'member' },
 ];
 
-const members = [
-  { id: '1', name: 'John Doe', email: 'john@example.com', phone: '555-1234', grade: '12', ctePathway: false, roles: ['Regular Member'], committees: [], notes: '' },
-  { id: '2', name: 'Jane Smith', email: 'jane@example.com', phone: '555-5678', grade: '11', ctePathway: true, roles: ['Committee Lead', 'SLC Participant'], committees: [], notes: '' },
-];
-
-const committees = [
-  { id: '1', name: 'Leadership', description: 'Student leaders', chair: '1', schedule: 'Mondays 3pm', defaultPts: 10 },
-];
-
+const members = [];
+const committees = [];
 const committeeMembers = [];
 const weeklyNotes = [];
-const slcPointsTracking = [];
 const slcPointsHistory = [];
-
-const attendance = [];
-const transactions = [];
-const buckets = [
-  { id: '1', name: 'General Fund', balance: 5000, budget: 10000, description: 'General operational fund' },
-];
-const feeCategories = [
-  { id: '1', name: 'Membership Fee', amount: 50, description: 'Annual membership' },
-];
-const memberFees = [];
-const fundraisers = [
-  { id: '1', name: 'Car Wash', goal: 1000, raised: 500, date: '2026-09-15', description: '', status: 'active' },
-];
-const snapCampaigns = [];
-const grants = [];
-const equipment = [];
-const equipmentLogs = [];
-const events = [];
 const emailHistory = [];
-const settings = { orgName: 'HOSA SLC', orgEmail: 'hosa@example.com', attendancePoints: 10, eventAttendancePoints: 5 };
+const feeCategories = [];
+const memberFees = [];
+const transactions = [];
+const buckets = [];
+const fundraisers = [];
+const events = [];
+const attendance = [];
 
 // ===== MIDDLEWARE =====
 const verifyToken = (req, res, next) => {
@@ -79,6 +59,36 @@ app.post('/api/auth/register', (req, res) => {
   users.push(newUser);
   const token = jwt.sign({ id: newUser.id, role: newUser.role }, SECRET);
   res.json({ token, user: { id: newUser.id, name: newUser.name, email: newUser.email, role: newUser.role } });
+});
+
+// ===== USERS MANAGEMENT =====
+app.get('/api/users', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  res.json(users);
+});
+
+app.post('/api/users', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  const { email, password, name, role } = req.body;
+  if (users.find(u => u.email === email)) return res.status(400).json({ error: 'Email exists' });
+  const newUser = { id: Date.now().toString(), email, password, name, role: role || 'member' };
+  users.push(newUser);
+  res.json(newUser);
+});
+
+app.patch('/api/users/:id', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  const user = users.find(u => u.id === req.params.id);
+  if (!user) return res.status(404).json({ error: 'Not found' });
+  Object.assign(user, req.body);
+  res.json(user);
+});
+
+app.delete('/api/users/:id', verifyToken, (req, res) => {
+  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
+  const index = users.findIndex(u => u.id === req.params.id);
+  if (index > -1) users.splice(index, 1);
+  res.json({ success: true });
 });
 
 // ===== MEMBERS =====
@@ -220,28 +230,7 @@ app.delete('/api/weekly-notes/:id', verifyToken, (req, res) => {
 // ===== SLC POINTS =====
 app.post('/api/committees/:id/slc-points', verifyToken, (req, res) => {
   try {
-    const { id } = req.params;
     const { memberId, week, rating } = req.body;
-    
-    const existing = slcPointsTracking.find(p => 
-      p.committeeId === id && p.memberId === memberId && p.week === week
-    );
-    
-    if (existing) {
-      existing.rating = rating;
-    } else {
-      const newRating = {
-        id: Date.now().toString(),
-        committeeId: id,
-        memberId: memberId,
-        week: week,
-        rating: rating,
-        ratedBy: req.user.id,
-        ratedDate: new Date().toISOString()
-      };
-      slcPointsTracking.push(newRating);
-    }
-    
     const pointEntry = {
       id: Date.now().toString(),
       memberId: memberId,
@@ -251,22 +240,18 @@ app.post('/api/committees/:id/slc-points', verifyToken, (req, res) => {
       awardedDate: new Date().toISOString()
     };
     slcPointsHistory.push(pointEntry);
-    
     res.json({ success: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
   }
 });
 
-app.get('/api/slc-points', verifyToken, (req, res) => {
-  res.json(slcPointsHistory);
-});
+app.get('/api/slc-points', verifyToken, (req, res) => res.json(slcPointsHistory));
 
 app.post('/api/slc-points', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin' && req.user.role !== 'admin') {
     return res.status(403).json({ error: 'Forbidden' });
   }
-  
   const { memberId, points, reason } = req.body;
   const newEntry = {
     id: Date.now().toString(),
@@ -276,7 +261,6 @@ app.post('/api/slc-points', verifyToken, (req, res) => {
     awardedBy: req.user.id,
     awardedDate: new Date().toISOString()
   };
-  
   slcPointsHistory.push(newEntry);
   res.json(newEntry);
 });
@@ -287,7 +271,6 @@ app.get('/api/slc-points-all', verifyToken, (req, res) => {
     const totalPoints = slcPointsHistory
       .filter(h => h.memberId === p.memberId)
       .reduce((sum, h) => sum + h.points, 0);
-    
     return {
       ...p,
       memberName: member?.name || 'Unknown',
@@ -297,7 +280,7 @@ app.get('/api/slc-points-all', verifyToken, (req, res) => {
   res.json(detailed);
 });
 
-// ===== EMAIL & INVOICES =====
+// ===== EMAIL =====
 app.post('/api/email', verifyToken, (req, res) => {
   const { to, subject, body, type } = req.body;
   const newEmail = {
@@ -371,10 +354,6 @@ app.delete('/api/fundraisers/:id', verifyToken, (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/snap-campaigns', verifyToken, (req, res) => res.json(snapCampaigns));
-app.get('/api/grants', verifyToken, (req, res) => res.json(grants));
-app.get('/api/equipment', verifyToken, (req, res) => res.json(equipment));
-app.get('/api/equipment-logs', verifyToken, (req, res) => res.json(equipmentLogs));
 app.get('/api/events', verifyToken, (req, res) => res.json(events));
 app.post('/api/events', verifyToken, (req, res) => {
   const newEvent = { id: Date.now().toString(), ...req.body };
@@ -393,24 +372,10 @@ app.delete('/api/events/:id', verifyToken, (req, res) => {
   res.json({ success: true });
 });
 
-app.get('/api/settings', verifyToken, (req, res) => res.json(settings));
-app.post('/api/settings', verifyToken, (req, res) => {
-  Object.assign(settings, req.body);
-  res.json(settings);
-});
-
-app.get('/api/users', verifyToken, (req, res) => {
-  if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
-  res.json(users);
-});
-
-app.get('/api/member-dashboard', verifyToken, (req, res) => {
-  res.json({ member: {}, outstandingFees: 0, equipmentCount: 0, eventsCount: 0, fundraisersCount: 0 });
-});
-
+// ===== CATCH ALL =====
 app.get('*', (req, res) => {
   res.sendFile(path.join(__dirname, 'frontend/build/index.html'));
 });
 
-const PORT = process.env.PORT || 3001;
+const PORT = process.env.PORT || 8080;
 app.listen(PORT, () => console.log(`Server running on port ${PORT}`));
