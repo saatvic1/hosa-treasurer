@@ -9,7 +9,10 @@ export default function Committees({ user, data, reload }) {
   const [editingId, setEditingId] = useState(null);
   const [selectedCommitteeId, setSelectedCommitteeId] = useState(null);
   const [committeeMembers, setCommitteeMembers] = useState([]);
-  const [selectedMemberToAdd, setSelectedMemberToAdd] = useState('');
+  const [showChairSearch, setShowChairSearch] = useState(false);
+  const [chairSearch, setChairSearch] = useState('');
+  const [showAddMemberSearch, setShowAddMemberSearch] = useState(false);
+  const [addMemberSearch, setAddMemberSearch] = useState('');
   const [selectedMemberForSLC, setSelectedMemberForSLC] = useState(null);
   const [slcWeek, setSlcWeek] = useState('1');
   const [slcRating, setSlcRating] = useState('0');
@@ -55,11 +58,12 @@ export default function Committees({ user, data, reload }) {
     }
   };
 
-  const handleAddMember = async () => {
-    if (!selectedMemberToAdd) return alert('Select a member');
+  const handleAddMember = async (memberId) => {
+    if (!memberId) return alert('Select a member');
     try {
-      await api.post(`/committees/${selectedCommitteeId}/members`, { memberId: selectedMemberToAdd });
-      setSelectedMemberToAdd('');
+      await api.post(`/committees/${selectedCommitteeId}/members`, { memberId: memberId });
+      setAddMemberSearch('');
+      setShowAddMemberSearch(false);
       loadCommitteeMembers(selectedCommitteeId);
     } catch (err) {
       alert('Error adding member');
@@ -95,17 +99,33 @@ export default function Committees({ user, data, reload }) {
     }
   };
 
+  const filteredChairMembers = members.filter(m =>
+    m.name.toLowerCase().includes(chairSearch.toLowerCase()) ||
+    m.email.toLowerCase().includes(chairSearch.toLowerCase())
+  ).slice(0, 8);
+
+  const filteredAddMembers = members.filter(m =>
+    !committeeMembers.find(cm => cm.memberId === m.id) &&
+    (m.name.toLowerCase().includes(addMemberSearch.toLowerCase()) ||
+    m.email.toLowerCase().includes(addMemberSearch.toLowerCase()))
+  ).slice(0, 8);
+
   const generatePDF = () => {
     let pdf = '=== COMMITTEES EXPORT ===\n\n';
     committees.forEach(c => {
       const chair = members.find(m => m.id === c.chair);
-      const comMembers = committeeMembers.filter(cm => cm.committeeId === c.id);
-      pdf += `Committee: ${c.name}\nChair: ${chair?.name || '-'}\nSchedule: ${c.schedule || '-'}\nMembers: ${comMembers.length}\nDescription: ${c.description || '-'}\n\n`;
+      pdf += `Committee: ${c.name}\nChair: ${chair?.name || '-'}\nSchedule: ${c.schedule || '-'}\nDescription: ${c.description || '-'}\n\n`;
     });
     const element = document.createElement('a');
     element.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(pdf);
     element.download = 'committees-export.txt';
     element.click();
+  };
+
+  const getChairName = () => {
+    if (!form.chair) return '';
+    const member = members.find(m => m.id === form.chair);
+    return member?.name || '';
   };
 
   return (
@@ -169,15 +189,62 @@ export default function Committees({ user, data, reload }) {
                 <label className="form-label">Committee Name *</label>
                 <input className="form-input" value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} required />
               </div>
+              
               <div className="form-group">
                 <label className="form-label">Chair</label>
-                <select className="form-input" value={form.chair} onChange={(e) => setForm({ ...form, chair: e.target.value })}>
-                  <option value="">Select chair...</option>
-                  {members.map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
+                <div style={{ position: 'relative' }}>
+                  <input 
+                    className="form-input" 
+                    placeholder="Type name or email..."
+                    value={chairSearch}
+                    onChange={(e) => { setChairSearch(e.target.value); setShowChairSearch(true); }}
+                    onFocus={() => setShowChairSearch(true)}
+                  />
+                  {getChairName() && form.chair && (
+                    <div style={{ fontSize: '12px', color: '#8b8580', marginTop: '4px' }}>
+                      Selected: <strong>{getChairName()}</strong>
+                    </div>
+                  )}
+                  {showChairSearch && chairSearch && filteredChairMembers.length > 0 && (
+                    <div style={{
+                      position: 'absolute',
+                      top: '100%',
+                      left: 0,
+                      right: 0,
+                      background: '#fff',
+                      border: '1px solid #e8e3de',
+                      borderRadius: '4px',
+                      zIndex: 10,
+                      maxHeight: '200px',
+                      overflowY: 'auto',
+                      boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                    }}>
+                      {filteredChairMembers.map(m => (
+                        <div
+                          key={m.id}
+                          onClick={() => {
+                            setForm({ ...form, chair: m.id });
+                            setChairSearch(m.name);
+                            setShowChairSearch(false);
+                          }}
+                          style={{
+                            padding: '10px 12px',
+                            cursor: 'pointer',
+                            borderBottom: '1px solid #f5f3f0',
+                            hover: { background: '#f5f3f0' }
+                          }}
+                          onMouseEnter={(e) => e.target.style.background = '#f5f3f0'}
+                          onMouseLeave={(e) => e.target.style.background = '#fff'}
+                        >
+                          <strong>{m.name}</strong>
+                          <p style={{ fontSize: '12px', color: '#8b8580', margin: '2px 0' }}>{m.email}</p>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+
               <div className="form-group">
                 <label className="form-label">Schedule</label>
                 <input className="form-input" value={form.schedule} onChange={(e) => setForm({ ...form, schedule: e.target.value })} />
@@ -199,18 +266,54 @@ export default function Committees({ user, data, reload }) {
         <div className="modal-overlay open">
           <div className="modal" style={{ maxWidth: '600px', maxHeight: '80vh', overflowY: 'auto' }}>
             <h2 className="modal-title">Manage Committee Members</h2>
+            
             <div className="form-group">
               <label className="form-label">Add Member</label>
-              <div style={{ display: 'flex', gap: '10px' }}>
-                <select className="form-input" value={selectedMemberToAdd} onChange={(e) => setSelectedMemberToAdd(e.target.value)} style={{ flex: 1 }}>
-                  <option value="">Select member...</option>
-                  {members.filter(m => !committeeMembers.find(cm => cm.memberId === m.id)).map(m => (
-                    <option key={m.id} value={m.id}>{m.name}</option>
-                  ))}
-                </select>
-                <button className="btn btn-primary" onClick={handleAddMember}>Add</button>
+              <div style={{ position: 'relative' }}>
+                <input 
+                  className="form-input" 
+                  placeholder="Type name or email..."
+                  value={addMemberSearch}
+                  onChange={(e) => { setAddMemberSearch(e.target.value); setShowAddMemberSearch(true); }}
+                  onFocus={() => setShowAddMemberSearch(true)}
+                />
+                {showAddMemberSearch && addMemberSearch && filteredAddMembers.length > 0 && (
+                  <div style={{
+                    position: 'absolute',
+                    top: '100%',
+                    left: 0,
+                    right: 0,
+                    background: '#fff',
+                    border: '1px solid #e8e3de',
+                    borderRadius: '4px',
+                    zIndex: 10,
+                    maxHeight: '200px',
+                    overflowY: 'auto',
+                    boxShadow: '0 2px 8px rgba(0,0,0,0.1)'
+                  }}>
+                    {filteredAddMembers.map(m => (
+                      <div
+                        key={m.id}
+                        onClick={() => {
+                          handleAddMember(m.id);
+                        }}
+                        style={{
+                          padding: '10px 12px',
+                          cursor: 'pointer',
+                          borderBottom: '1px solid #f5f3f0'
+                        }}
+                        onMouseEnter={(e) => e.target.style.background = '#f5f3f0'}
+                        onMouseLeave={(e) => e.target.style.background = '#fff'}
+                      >
+                        <strong>{m.name}</strong>
+                        <p style={{ fontSize: '12px', color: '#8b8580', margin: '2px 0' }}>{m.email}</p>
+                      </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
+
             <div className="card" style={{ marginTop: '20px' }}>
               <div className="card-title">Current Members ({committeeMembers.length})</div>
               {committeeMembers.length > 0 ? (
@@ -232,6 +335,7 @@ export default function Committees({ user, data, reload }) {
                 <p style={{ color: '#8b8580' }}>No members yet</p>
               )}
             </div>
+
             <div className="modal-footer">
               <button className="btn btn-secondary" onClick={() => setShowMembersModal(false)}>Close</button>
             </div>
