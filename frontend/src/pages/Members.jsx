@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import api from '../api';
+import MembersBulkImport from './MembersBulkImport';
 
 export default function Members({ user, data, reload }) {
   const [members, setMembers] = useState([]);
@@ -8,6 +9,8 @@ export default function Members({ user, data, reload }) {
   const [editingId, setEditingId] = useState(null);
   const [searchTerm, setSearchTerm] = useState('');
   const [committees, setCommittees] = useState([]);
+  const [showCredentialsModal, setShowCredentialsModal] = useState(false);
+  const [newUserCredentials, setNewUserCredentials] = useState(null);
 
   useEffect(() => {
     setMembers(data.members || []);
@@ -19,13 +22,24 @@ export default function Members({ user, data, reload }) {
     try {
       if (editingId) {
         await api.patch(`/members/${editingId}`, form);
+        reload();
+        setShowModal(false);
+        setForm({ name: '', email: '', phone: '', grade: '', ctePathway: false, roles: [], committees: [], notes: '' });
+        setEditingId(null);
       } else {
-        await api.post('/members', form);
+        // CREATE new member - will auto-create user
+        const response = await api.post('/members', form);
+        
+        // Show credentials if a new user was created
+        if (response.data?.autoCreatedUser) {
+          setNewUserCredentials(response.data.autoCreatedUser);
+          setShowCredentialsModal(true);
+        }
+        
+        reload();
+        setShowModal(false);
+        setForm({ name: '', email: '', phone: '', grade: '', ctePathway: false, roles: [], committees: [], notes: '' });
       }
-      reload();
-      setShowModal(false);
-      setForm({ name: '', email: '', phone: '', grade: '', ctePathway: false, roles: [], committees: [], notes: '' });
-      setEditingId(null);
     } catch (err) {
       alert('Error saving member');
     }
@@ -75,10 +89,11 @@ export default function Members({ user, data, reload }) {
     <div>
       <h2 className="card-title-main">Members</h2>
 
-      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px' }}>
+      <div style={{ display: 'flex', gap: '10px', marginBottom: '20px', flexWrap: 'wrap' }}>
         <button className="btn btn-primary" onClick={() => { setShowModal(true); setForm({ name: '', email: '', phone: '', grade: '', ctePathway: false, roles: [], committees: [], notes: '' }); setEditingId(null); }}>
           ➕ Add Member
         </button>
+        <MembersBulkImport reload={reload} />
         <button className="btn btn-secondary" onClick={generatePDF}>
           📄 Export PDF
         </button>
@@ -202,6 +217,64 @@ export default function Members({ user, data, reload }) {
                 <button type="submit" className="btn btn-primary">Save</button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {showCredentialsModal && newUserCredentials && (
+        <div className="modal-overlay open">
+          <div className="modal" style={{ textAlign: 'center' }}>
+            <h2 className="modal-title">✅ Member Account Created!</h2>
+            <div style={{ padding: '30px 20px', background: '#e8f4f0', borderRadius: '8px', marginBottom: '20px' }}>
+              <p style={{ color: '#8b8580', marginBottom: '15px', fontSize: '14px' }}>
+                {newUserCredentials.message}
+              </p>
+              
+              <div style={{ marginBottom: '20px', textAlign: 'left', background: '#fff', padding: '15px', borderRadius: '6px', borderLeft: '4px solid #2d5a3d' }}>
+                <p style={{ fontSize: '12px', color: '#8b8580', marginBottom: '8px', fontWeight: '600' }}>EMAIL:</p>
+                <code style={{ fontSize: '14px', color: '#2d5a3d', fontFamily: 'monospace' }}>{newUserCredentials.email}</code>
+                <button 
+                  onClick={() => navigator.clipboard.writeText(newUserCredentials.email)}
+                  style={{ marginLeft: '8px', padding: '4px 8px', fontSize: '11px', background: '#f5f3f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div style={{ marginBottom: '20px', textAlign: 'left', background: '#fff', padding: '15px', borderRadius: '6px', borderLeft: '4px solid #2d5a3d' }}>
+                <p style={{ fontSize: '12px', color: '#8b8580', marginBottom: '8px', fontWeight: '600' }}>PASSWORD:</p>
+                <code style={{ fontSize: '14px', color: '#2d5a3d', fontFamily: 'monospace', wordBreak: 'break-all' }}>{newUserCredentials.password}</code>
+                <button 
+                  onClick={() => navigator.clipboard.writeText(newUserCredentials.password)}
+                  style={{ marginLeft: '8px', padding: '4px 8px', fontSize: '11px', background: '#f5f3f0', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                >
+                  Copy
+                </button>
+              </div>
+
+              <div style={{ textAlign: 'left', background: '#fff', padding: '15px', borderRadius: '6px', borderLeft: '4px solid #2d5a3d' }}>
+                <p style={{ fontSize: '12px', color: '#8b8580', marginBottom: '8px', fontWeight: '600' }}>INITIAL ROLE:</p>
+                <p style={{ fontSize: '14px', color: '#2d5a3d', fontWeight: '600' }}>{newUserCredentials.role}</p>
+                <p style={{ fontSize: '11px', color: '#8b8580', marginTop: '8px' }}>You can change this to admin/mega-admin in the Users page</p>
+              </div>
+            </div>
+
+            <div style={{ padding: '15px', background: '#f5e3de', borderRadius: '6px', marginBottom: '20px' }}>
+              <p style={{ fontSize: '12px', color: '#d4a574', margin: 0 }}>
+                ⚠️ Save these credentials - they won't be shown again!
+              </p>
+            </div>
+
+            <button 
+              className="btn btn-primary"
+              onClick={() => {
+                setShowCredentialsModal(false);
+                setNewUserCredentials(null);
+              }}
+              style={{ width: '100%' }}
+            >
+              Got It!
+            </button>
           </div>
         </div>
       )}

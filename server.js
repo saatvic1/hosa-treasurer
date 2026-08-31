@@ -31,6 +31,16 @@ const fundraisers = [];
 const events = [];
 const attendance = [];
 
+// ===== UTILITY FUNCTIONS =====
+function generateRandomPassword(length = 12) {
+  const chars = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789!@#$';
+  let password = '';
+  for (let i = 0; i < length; i++) {
+    password += chars.charAt(Math.floor(Math.random() * chars.length));
+  }
+  return password;
+}
+
 // ===== MIDDLEWARE =====
 const verifyToken = (req, res, next) => {
   const token = req.headers.authorization?.split(' ')[1];
@@ -64,7 +74,14 @@ app.post('/api/auth/register', (req, res) => {
 // ===== USERS MANAGEMENT =====
 app.get('/api/users', verifyToken, (req, res) => {
   if (req.user.role !== 'mega-admin') return res.status(403).json({ error: 'Forbidden' });
-  res.json(users);
+  // Don't send passwords to frontend
+  const safeUsers = users.map(u => ({
+    id: u.id,
+    email: u.email,
+    name: u.name,
+    role: u.role
+  }));
+  res.json(safeUsers);
 });
 
 app.post('/api/users', verifyToken, (req, res) => {
@@ -93,17 +110,66 @@ app.delete('/api/users/:id', verifyToken, (req, res) => {
 
 // ===== MEMBERS =====
 app.get('/api/members', verifyToken, (req, res) => res.json(members));
+
 app.post('/api/members', verifyToken, (req, res) => {
-  const newMember = { id: Date.now().toString(), ...req.body };
-  members.push(newMember);
-  res.json(newMember);
+  try {
+    const { name, email, phone, grade, ctePathway, roles, committees, notes } = req.body;
+    
+    // Create member
+    const newMember = { 
+      id: Date.now().toString(), 
+      name, 
+      email, 
+      phone: phone || '', 
+      grade: grade || '', 
+      ctePathway: ctePathway || false, 
+      roles: roles || [], 
+      committees: committees || [], 
+      notes: notes || '' 
+    };
+    members.push(newMember);
+    
+    // AUTO-CREATE USER ACCOUNT
+    if (!users.find(u => u.email === email)) {
+      const generatedPassword = generateRandomPassword();
+      const newUser = {
+        id: Date.now().toString() + '_user',
+        email: email,
+        password: generatedPassword,
+        name: name,
+        role: 'member' // Default role
+      };
+      users.push(newUser);
+      
+      // RETURN BOTH member AND the auto-created user credentials
+      res.json({
+        member: newMember,
+        autoCreatedUser: {
+          email: newUser.email,
+          password: generatedPassword,
+          role: newUser.role,
+          message: `✅ User account created! Share this password with ${name}`
+        }
+      });
+    } else {
+      res.json({
+        member: newMember,
+        autoCreatedUser: null,
+        message: `User already exists for ${email}`
+      });
+    }
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
 });
+
 app.patch('/api/members/:id', verifyToken, (req, res) => {
   const member = members.find(m => m.id === req.params.id);
   if (!member) return res.status(404).json({ error: 'Not found' });
   Object.assign(member, req.body);
   res.json(member);
 });
+
 app.delete('/api/members/:id', verifyToken, (req, res) => {
   const index = members.findIndex(m => m.id === req.params.id);
   if (index > -1) members.splice(index, 1);
