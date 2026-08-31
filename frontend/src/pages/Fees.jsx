@@ -13,33 +13,37 @@ export default function Fees({ user, data, reload }) {
   const [members, setMembers] = useState([]);
 
   useEffect(() => {
-    loadData();
-  }, [data]);
-
-  useEffect(() => {
     setMembers(data.members || []);
   }, [data.members]);
 
+  useEffect(() => {
+    loadData();
+  }, [members, data]);
+
   const loadData = async () => {
     try {
-      const res = await api.get('/fee-categories');
-      setFees(res.data || []);
+      // Load fees
+      const feeRes = await api.get('/fee-categories');
+      setFees(feeRes.data || []);
       
-      const res2 = await api.get('/member-fees');
-      const rawMFs = res2.data || [];
+      // Load member fees
+      const mfRes = await api.get('/member-fees');
+      const rawMFs = mfRes.data || [];
       
-      // Enrich with member and fee details
+      // FORCE enrich with names from current data
       const enriched = rawMFs.map(mf => {
         const member = members.find(m => m.id === mf.memberId);
-        const fee = (res.data || []).find(f => f.id === mf.feeId);
+        const fee = (feeRes.data || []).find(f => f.id === mf.feeId);
+        
         return {
           ...mf,
-          memberName: member?.name || 'Unknown Member',
-          memberEmail: member?.email || '',
-          feeName: fee?.name || mf.feeName || 'Unknown Fee'
+          memberName: member?.name || mf.memberName || '(No name stored)',
+          memberEmail: member?.email || mf.memberEmail || '',
+          feeName: fee?.name || mf.feeName || '(No fee name stored)'
         };
       });
       
+      console.log('Member Fees loaded:', enriched);
       setMemberFees(enriched);
     } catch (err) {
       console.error('Error loading fees:', err);
@@ -91,22 +95,31 @@ export default function Fees({ user, data, reload }) {
 
     try {
       const fee = fees.find(f => f.id === selectedFee);
+      console.log('Applying fee:', fee, 'to', targetMembers.length, 'members');
+      
       for (let member of targetMembers) {
-        await api.post('/member-fees', {
+        const payload = {
           memberId: member.id,
-          memberName: member.name,
+          memberName: member.name,  // FORCE STORE
+          memberEmail: member.email, // FORCE STORE
           feeId: selectedFee,
-          feeName: fee.name,
+          feeName: fee.name,  // FORCE STORE
           amount: fee.amount,
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           paid: false
-        });
+        };
+        console.log('Posting:', payload);
+        await api.post('/member-fees', payload);
       }
-      loadData();
-      setShowApplyModal(false);
-      setApplyFilter('');
-      setSelectedFee('');
-      alert(`Fee applied to ${targetMembers.length} members!`);
+      
+      // Reload immediately
+      setTimeout(() => {
+        loadData();
+        setShowApplyModal(false);
+        setApplyFilter('');
+        setSelectedFee('');
+        alert(`Fee applied to ${targetMembers.length} members!`);
+      }, 500);
     } catch (err) {
       alert('Error applying fees: ' + err.message);
     }
@@ -238,8 +251,7 @@ export default function Fees({ user, data, reload }) {
           <table>
             <thead>
               <tr>
-                <th>Member Name</th>
-                <th>Email</th>
+                <th>Member</th>
                 <th>Fee</th>
                 <th>Amount</th>
                 <th>Due Date</th>
@@ -252,8 +264,7 @@ export default function Fees({ user, data, reload }) {
                 memberFees.map(mf => (
                   <tr key={mf.id}>
                     <td><strong>{mf.memberName}</strong></td>
-                    <td>{mf.memberEmail}</td>
-                    <td>{mf.feeName}</td>
+                    <td><strong>{mf.feeName}</strong></td>
                     <td>${mf.amount}</td>
                     <td>{mf.dueDate ? new Date(mf.dueDate).toLocaleDateString() : '-'}</td>
                     <td>
@@ -279,7 +290,7 @@ export default function Fees({ user, data, reload }) {
                   </tr>
                 ))
               ) : (
-                <tr><td colSpan="7" style={{ textAlign: 'center', color: '#8b8580' }}>No member fees</td></tr>
+                <tr><td colSpan="6" style={{ textAlign: 'center', color: '#8b8580' }}>No member fees</td></tr>
               )}
             </tbody>
           </table>
