@@ -22,7 +22,19 @@ export default function Fees({ user, data, reload }) {
       const res = await api.get('/fee-categories');
       setFees(res.data || []);
       const res2 = await api.get('/member-fees');
-      setMemberFees(res2.data || []);
+      const mfs = res2.data || [];
+      
+      // Enrich with member and fee names
+      const enriched = mfs.map(mf => {
+        const member = members.find(m => m.id === mf.memberId);
+        const fee = fees.find(f => f.id === mf.feeId);
+        return {
+          ...mf,
+          memberName: member?.name || 'Unknown',
+          feeName: fee?.name || 'Unknown'
+        };
+      });
+      setMemberFees(enriched);
     } catch (err) {
       console.error('Error loading fees');
     }
@@ -76,7 +88,9 @@ export default function Fees({ user, data, reload }) {
       for (let member of targetMembers) {
         await api.post('/member-fees', {
           memberId: member.id,
+          memberName: member.name,
           feeId: selectedFee,
+          feeName: fee.name,
           amount: fee.amount,
           dueDate: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString().split('T')[0],
           paid: false
@@ -102,7 +116,7 @@ export default function Fees({ user, data, reload }) {
     }
   };
 
-  const handleSendInvoice = async (memberId) => {
+  const handleSendInvoice = async (memberId, memberEmail) => {
     const member = members.find(m => m.id === memberId);
     if (!member) return alert('Member not found');
     
@@ -131,9 +145,7 @@ export default function Fees({ user, data, reload }) {
     });
     pdf += '\n--- Member Fees ---\n';
     memberFees.forEach(mf => {
-      const member = members.find(m => m.id === mf.memberId);
-      const fee = fees.find(f => f.id === mf.feeId);
-      pdf += `${member?.name || '-'}: ${fee?.name || '-'} - $${mf.amount} - ${mf.paid ? 'PAID' : 'UNPAID'}\n`;
+      pdf += `${mf.memberName}: ${mf.feeName} - $${mf.amount} - ${mf.paid ? 'PAID' : 'UNPAID'}\n`;
     });
     const element = document.createElement('a');
     element.href = 'data:text/plain;charset=utf-8,' + encodeURIComponent(pdf);
@@ -231,12 +243,10 @@ export default function Fees({ user, data, reload }) {
             <tbody>
               {memberFees.length > 0 ? (
                 memberFees.map(mf => {
-                  const member = members.find(m => m.id === mf.memberId);
-                  const fee = fees.find(f => f.id === mf.feeId);
                   return (
                     <tr key={mf.id}>
-                      <td>{member?.name || '-'}</td>
-                      <td>{fee?.name || '-'}</td>
+                      <td><strong>{mf.memberName}</strong></td>
+                      <td>{mf.feeName}</td>
                       <td>${mf.amount}</td>
                       <td>{mf.dueDate ? new Date(mf.dueDate).toLocaleDateString() : '-'}</td>
                       <td>
@@ -255,7 +265,7 @@ export default function Fees({ user, data, reload }) {
                         {!mf.paid && (
                           <>
                             <button className="btn btn-primary btn-small" onClick={() => handleMarkPaid(mf.id)}>Mark Paid</button>
-                            <button className="btn btn-warning btn-small" onClick={() => handleSendInvoice(mf.memberId)}>📧 Invoice</button>
+                            <button className="btn btn-warning btn-small" onClick={() => handleSendInvoice(mf.memberId, members.find(m => m.id === mf.memberId)?.email)}>📧 Invoice</button>
                           </>
                         )}
                       </td>
